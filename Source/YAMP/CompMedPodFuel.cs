@@ -9,7 +9,7 @@ namespace YAMP
     {
         public float fuelCapacity = 100f; // Max stock
         public float stockGainRate = 0.1f; // Stock gained per tick from buffer
-        
+
         // Fuel Values (Stock amount per item)
         public float fuelValueHerbal = 10f;
         public float fuelValueIndustrial = 30f;
@@ -27,7 +27,7 @@ namespace YAMP
         public float stock; // Available stock for operations
         public float stockBuffer; // Stock currently being "processed" (burning)
         public ThingOwner innerContainer; // Stores the medicine waiting to be burnt
-        public ThingFilter fuelFilter; // Filter for allowed fuel types
+        // public ThingFilter fuelFilter; // Filter for allowed fuel types
 
         public CompProperties_MedPodFuel Props => (CompProperties_MedPodFuel)props;
 
@@ -36,8 +36,8 @@ namespace YAMP
         public CompMedPodFuel()
         {
             innerContainer = new ThingOwner<Thing>(this);
-            fuelFilter = new ThingFilter();
-            fuelFilter.SetAllow(ThingCategoryDefOf.Medicine, true);
+            //fuelFilter = new ThingFilter();
+            //fuelFilter.SetAllow(ThingCategoryDefOf.Medicine, true);
         }
 
         public void GetChildHolders(List<IThingHolder> outChildren)
@@ -56,19 +56,19 @@ namespace YAMP
             Scribe_Values.Look(ref stock, "stock", 0f);
             Scribe_Values.Look(ref stockBuffer, "stockBuffer", 0f);
             Scribe_Deep.Look(ref innerContainer, "innerContainer", this);
-            Scribe_Deep.Look(ref fuelFilter, "fuelFilter");
-            
-            if (Scribe.mode == LoadSaveMode.PostLoadInit && fuelFilter == null)
+            //Scribe_Deep.Look(ref fuelFilter, "fuelFilter");
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit) // && fuelFilter == null)
             {
-                fuelFilter = new ThingFilter();
-                fuelFilter.SetAllow(ThingCategoryDefOf.Medicine, true);
+                //fuelFilter = new ThingFilter();
+                //fuelFilter.SetAllow(ThingCategoryDefOf.Medicine, true);
             }
         }
 
         public override void CompTick()
         {
             base.CompTick();
-            
+
             // Process Buffer -> Stock
             if (stockBuffer > 0)
             {
@@ -93,10 +93,10 @@ namespace YAMP
         {
             Thing fuel = innerContainer[0];
             float value = GetFuelValue(fuel.def);
-            
+
             // Consume 1 item
             fuel.SplitOff(1).Destroy();
-            
+
             // Add to buffer
             stockBuffer += value;
         }
@@ -107,15 +107,17 @@ namespace YAMP
             {
                 return Props.fuelValueHerbal;
             }
+
             if (def == ThingDefOf.MedicineIndustrial)
             {
                 return Props.fuelValueIndustrial;
             }
+
             if (def == ThingDefOf.MedicineUltratech)
             {
                 return Props.fuelValueGlitter;
             }
-            
+
             Log.Warning($"YAMP: Unknown medicine type: {def.defName}");
             return Props.fuelValueDefault;
         }
@@ -123,10 +125,10 @@ namespace YAMP
         public override string CompInspectStringExtra()
         {
             return $"""
-                Stock: {stock:F1}/{Props.fuelCapacity} ({StockPercent:P0})
-                Processing: {stockBuffer:F1}
-                Fuel Items: {innerContainer.TotalStackCount}
-                """;
+                    Stock: {stock:F1}/{Props.fuelCapacity} ({StockPercent:P0})
+                    Processing: {stockBuffer:F1}
+                    Fuel Items: {innerContainer.TotalStackCount}
+                    """;
         }
 
         public override IEnumerable<Gizmo> CompGetGizmosExtra()

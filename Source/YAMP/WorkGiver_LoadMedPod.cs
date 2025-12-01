@@ -16,7 +16,7 @@ namespace YAMP
             if (!(t is Building_MedPod pod)) return false;
 
             CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
-            CompMedPodOperations opsComp = pod.TryGetComp<CompMedPodOperations>();
+            CompMedPodSurgery opsComp = pod.TryGetComp<CompMedPodSurgery>();
 
             if (fuelComp == null || opsComp == null) return false;
 
@@ -28,6 +28,7 @@ namespace YAMP
             }
 
             // Check if we need ingredients for operation
+            // Use InnerContainer for patient
             Pawn patient = opsComp.innerContainer.OfType<Pawn>().FirstOrDefault();
             if (patient != null)
             {
@@ -50,7 +51,7 @@ namespace YAMP
         {
             Building_MedPod pod = (Building_MedPod)t;
             CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
-            CompMedPodOperations opsComp = pod.TryGetComp<CompMedPodOperations>();
+            CompMedPodSurgery opsComp = pod.TryGetComp<CompMedPodSurgery>();
 
             // Prioritize Fuel if very low
             if (fuelComp.StockPercent < 0.5f)
@@ -101,7 +102,6 @@ namespace YAMP
             if (patient.BillStack == null) return null;
             foreach (Bill b in patient.BillStack)
             {
-                // Accept all medical bills
                 if (b is Bill_Medical bm && bm.ShouldDoNow())
                 {
                     return bm;
@@ -116,30 +116,23 @@ namespace YAMP
             CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
             if (fuelComp == null) return null;
 
-            // 1. Check adjacent shelves first (User requested/observed behavior)
-            Thing shelfMedicine = FindInAdjacentShelves(pod, null, fuelComp.fuelFilter);
-            if (shelfMedicine != null && pawn.CanReserve(shelfMedicine) && !shelfMedicine.IsForbidden(pawn))
-            {
-                return shelfMedicine;
-            }
-
+            // 1. Search nearby (linked) shelves
+            // unimplemented
             // 2. Search the map
             return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map,
                 ThingRequest.ForGroup(ThingRequestGroup.Medicine), PathEndMode.ClosestTouch, TraverseParms.For(pawn),
-                9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x) && fuelComp.fuelFilter.Allows(x));
+                9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x)); // && fuelComp.fuelFilter.Allows(x));
         }
 
-        private Thing FindIngredientForRecipe(Pawn pawn, CompMedPodOperations ops, RecipeDef recipe)
+        private Thing FindIngredientForRecipe(Pawn pawn, CompMedPodSurgery ops, RecipeDef recipe)
         {
             foreach (IngredientCount ing in recipe.ingredients)
             {
-                // Skip medicine - it comes from fuel system
                 if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
 
                 float needed = ing.GetBaseCount();
                 float has = 0;
 
-                // Check what we already have in the pod
                 foreach (Thing t in ops.innerContainer)
                 {
                     if (ing.filter.Allows(t)) has += t.stackCount;
@@ -147,14 +140,10 @@ namespace YAMP
 
                 if (has < needed)
                 {
-                    // First check adjacent shelves
-                    Thing shelfItem = FindInAdjacentShelves(ops.parent, ing);
-                    if (shelfItem != null && pawn.CanReserve(shelfItem))
-                    {
-                        return shelfItem;
-                    }
+                    // 1. Check Linked Shelves
+                    // unimplemented
 
-                    // Then search the map
+                    // 2. Search the map
                     return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map,
                         ThingRequest.ForGroup(ThingRequestGroup.HaulableEver), PathEndMode.ClosestTouch,
                         TraverseParms.For(pawn), 9999,
@@ -165,48 +154,11 @@ namespace YAMP
             return null;
         }
 
-        private Thing FindInAdjacentShelves(Thing pod, IngredientCount ing = null, ThingFilter filter = null)
-        {
-            // Check left and right cells for shelves
-            IntVec3[] adjacentCells = new IntVec3[]
-            {
-                pod.Position + IntVec3.East,
-                pod.Position + IntVec3.West,
-                pod.Position + IntVec3.North,
-                pod.Position + IntVec3.South
-            };
-
-            foreach (IntVec3 cell in adjacentCells)
-            {
-                if (!cell.InBounds(pod.Map)) continue;
-
-                foreach (Thing t in cell.GetThingList(pod.Map))
-                {
-                    // Check if it's a shelf/storage building
-                    if (t.def.building != null && t.def.building.isInert)
-                    {
-                        ISlotGroupParent slotParent = t as ISlotGroupParent;
-                        if (slotParent != null && slotParent.GetSlotGroup() != null)
-                        {
-                            foreach (Thing item in slotParent.GetSlotGroup().HeldThings)
-                            {
-                                if (ing != null && ing.filter.Allows(item)) return item;
-                                if (filter != null && filter.Allows(item)) return item;
-                            }
-                        }
-                    }
-                }
-            }
-
-            return null;
-        }
-
-        private bool MissingIngredients(CompMedPodOperations ops, RecipeDef recipe, out Thing foundIngredient)
+        private bool MissingIngredients(CompMedPodSurgery ops, RecipeDef recipe, out Thing foundIngredient)
         {
             foundIngredient = null;
             foreach (IngredientCount ing in recipe.ingredients)
             {
-                // Skip medicine - it comes from fuel system
                 if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
 
                 float needed = ing.GetBaseCount();

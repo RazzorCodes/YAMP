@@ -7,24 +7,25 @@ using Verse.AI;
 
 namespace YAMP
 {
-    public class CompProperties_MedPodOperations : CompProperties
+    public class CompProperties_MedPodSurgery : CompProperties
     {
         public float surgerySuccessChance = 0.98f; // High success chance
         public float stockConsumptionFactor = 1.0f; // Multiplier for stock consumption
 
-        public CompProperties_MedPodOperations()
+        public CompProperties_MedPodSurgery()
         {
-            compClass = typeof(CompMedPodOperations);
+            compClass = typeof(CompMedPodSurgery);
         }
     }
 
-    public class CompMedPodOperations : ThingComp, IThingHolder
+    public class CompMedPodSurgery : ThingComp, IThingHolder
     {
-        public ThingOwner innerContainer; // Holds Patient and Ingredients
-        
-        public CompProperties_MedPodOperations Props => (CompProperties_MedPodOperations)props;
-        
+        public ThingOwner<Thing> innerContainer; // Holds Patient AND Ingredients
+
+        public CompProperties_MedPodSurgery Props => (CompProperties_MedPodSurgery)props;
+
         private CompMedPodFuel fuelComp;
+
         public CompMedPodFuel FuelComp
         {
             get
@@ -34,7 +35,7 @@ namespace YAMP
             }
         }
 
-        public CompMedPodOperations()
+        public CompMedPodSurgery()
         {
             innerContainer = new ThingOwner<Thing>(this);
         }
@@ -64,6 +65,37 @@ namespace YAMP
             }
         }
 
+        private bool HasIngredients(RecipeDef recipe)
+        {
+            foreach (IngredientCount ing in recipe.ingredients)
+            {
+                // Skip medicine - it's provided by the fuel system
+                if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
+
+                float neededCount = ing.GetBaseCount();
+                float hasCount = 0;
+
+                foreach (Thing t in innerContainer)
+                {
+                    if (ing.filter.Allows(t))
+                    {
+                        hasCount += t.stackCount;
+                    }
+                }
+
+                if (hasCount < neededCount)
+                {
+                    // Get a sample item name from the filter
+                    string itemName = ing.filter.Summary;
+                    Log.Warning($"YAMP: Missing {itemName} (need {neededCount}, have {hasCount}) for {recipe.label}");
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+
         public void TryPerformOperation()
         {
             Pawn patient = innerContainer.OfType<Pawn>().FirstOrDefault();
@@ -72,7 +104,7 @@ namespace YAMP
             // Get the first medical bill from the patient
             Bill_Medical bill = GetFirstSurgeryBill(patient);
             if (bill == null) return;
-            
+
             RecipeDef recipe = bill.recipe;
 
             // Check if we have ingredients (EXCLUDING medicine - that comes from fuel)
@@ -96,49 +128,6 @@ namespace YAMP
             PerformOperation(patient, bill, stockCost);
         }
 
-        private Bill_Medical GetFirstSurgeryBill(Pawn patient)
-        {
-            if (patient.BillStack == null) return null;
-            foreach (Bill b in patient.BillStack)
-            {
-                // Accept all medical bills, not just surgeries
-                if (b is Bill_Medical bm && bm.ShouldDoNow())
-                {
-                    return bm;
-                }
-            }
-            return null;
-        }
-
-        private bool HasIngredients(RecipeDef recipe)
-        {
-            foreach (IngredientCount ing in recipe.ingredients)
-            {
-                // Skip medicine - it's provided by the fuel system
-                if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
-                
-                float neededCount = ing.GetBaseCount();
-                float hasCount = 0;
-                
-                foreach (Thing t in innerContainer)
-                {
-                    if (ing.filter.Allows(t))
-                    {
-                        hasCount += t.stackCount;
-                    }
-                }
-
-                if (hasCount < neededCount)
-                {
-                    // Get a sample item name from the filter
-                    string itemName = ing.filter.Summary;
-                    Log.Warning($"YAMP: Missing {itemName} (need {neededCount}, have {hasCount}) for {recipe.label}");
-                    return false;
-                }
-            }
-            return true;
-        }
-
         private float CalculateStockCost(RecipeDef recipe)
         {
             return 10f * Props.stockConsumptionFactor;
@@ -147,13 +136,13 @@ namespace YAMP
         private void PerformOperation(Pawn patient, Bill_Medical bill, float stockCost)
         {
             RecipeDef recipe = bill.recipe;
-            
+
             // Consume Stock
             FuelComp.stock -= stockCost;
 
             // Prepare ingredients list - including medicine from fuel stock
             List<Thing> ingredients = new List<Thing>();
-            
+
             foreach (IngredientCount ing in recipe.ingredients)
             {
                 if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine))
@@ -171,7 +160,8 @@ namespace YAMP
                         }
                         else
                         {
-                            Log.Warning($"YAMP: Not enough medicine in fuel ({medicine.stackCount}/{needed}) for {recipe.label}");
+                            Log.Warning(
+                                $"YAMP: Not enough medicine in fuel ({medicine.stackCount}/{needed}) for {recipe.label}");
                         }
                     }
                     else
@@ -183,7 +173,7 @@ namespace YAMP
                 {
                     // Get non-medicine ingredients from operations container
                     float neededCount = ing.GetBaseCount();
-                    
+
                     for (int i = innerContainer.Count - 1; i >= 0; i--)
                     {
                         Thing t = innerContainer[i];
@@ -201,38 +191,34 @@ namespace YAMP
 
             // Apply Surgery/Medical Operation
             bool success = Rand.Value <= Props.surgerySuccessChance;
-            
+
             if (success)
             {
                 // Use the bill's part
                 BodyPartRecord part = bill.Part;
-                
-                // Create a dummy surgeon pawn to avoid giving thoughts to the patient
-                Pawn dummySurgeon = CreateDummySurgeon();
-                
+
                 // Apply the recipe
-                recipe.Worker.ApplyOnPawn(patient, part, dummySurgeon, ingredients, bill); 
-                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} completed successfully.", parent, MessageTypeDefOf.PositiveEvent);
-                
-                // Destroy the dummy surgeon
-                dummySurgeon.Destroy();
-                
+                Recipe_MedPodSurgery.DoMedPodSurgery(patient, bill, ingredients, parent);
+                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} completed successfully.", parent,
+                    MessageTypeDefOf.PositiveEvent);
+
                 // Complete the bill
                 patient.BillStack.Delete(bill);
             }
             else
             {
-                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} failed.", parent, MessageTypeDefOf.NegativeEvent);
+                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} failed.", parent,
+                    MessageTypeDefOf.NegativeEvent);
                 patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 10, 0, -1, null, null));
                 // Keep bill on failure so they can try again
             }
-            
+
             // Destroy consumed ingredients
             foreach (Thing t in ingredients)
             {
                 t.Destroy();
             }
-            
+
             // Eject patient if dead
             if (patient.Dead)
             {
@@ -240,64 +226,19 @@ namespace YAMP
             }
         }
 
-        private Pawn CreateDummySurgeon()
-        {
-            // Create a minimal dummy pawn to act as surgeon
-            PawnKindDef kind = PawnKindDefOf.Colonist;
-            Faction faction = Faction.OfPlayer;
-            
-            Pawn dummy = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
-                kind,
-                faction,
-                forceGenerateNewPawn: true,
-                canGeneratePawnRelations: false,
-                colonistRelationChanceFactor: 0f
-            ));
-            
-            // Spawn the dummy on the map temporarily so organs can spawn at their position
-            GenSpawn.Spawn(dummy, parent.Position, parent.Map);
-            
-            return dummy;
-        }
-
-        public override IEnumerable<Gizmo> CompGetGizmosExtra()
-        {
-            foreach (Gizmo g in base.CompGetGizmosExtra()) yield return g;
-
-            Pawn patient = innerContainer.OfType<Pawn>().FirstOrDefault();
-            if (patient != null)
-            {
-                yield return new Command_Action
-                {
-                    defaultLabel = "Manage Operations",
-                    defaultDesc = "Select and jump to the patient to manage their health and operations.",
-                    icon = TexCommand.Draft,
-                    action = () =>
-                    {
-                        // Select the patient and jump camera to them
-                        CameraJumper.TryJumpAndSelect(patient);
-                    }
-                };
-                
-                yield return new Command_Action
-                {
-                    defaultLabel = "Eject Patient",
-                    action = () => innerContainer.TryDropAll(parent.Position, parent.Map, ThingPlaceMode.Near)
-                };
-            }
-        }
-
         public override IEnumerable<FloatMenuOption> CompFloatMenuOptions(Pawn selPawn)
         {
             if (!selPawn.CanReach(parent, PathEndMode.InteractionCell, Danger.Deadly))
             {
-                yield return new FloatMenuOption("CannotEnter".Translate() + ": " + "NoPath".Translate().CapitalizeFirst(), null);
+                yield return new FloatMenuOption(
+                    "CannotEnter".Translate() + ": " + "NoPath".Translate().CapitalizeFirst(), null);
                 yield break;
             }
-            
+
             if (innerContainer.Any(t => t is Pawn))
             {
-                yield return new FloatMenuOption("CannotEnter".Translate() + ": " + "Full".Translate().CapitalizeFirst(), null);
+                yield return new FloatMenuOption(
+                    "CannotEnter".Translate() + ": " + "Full".Translate().CapitalizeFirst(), null);
                 yield break;
             }
 
@@ -307,20 +248,36 @@ namespace YAMP
                 selPawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
             });
         }
-        
+
+        private Bill_Medical GetFirstSurgeryBill(Pawn patient)
+        {
+            if (patient.BillStack == null) return null;
+            foreach (Bill b in patient.BillStack)
+            {
+                if (b is Bill_Medical bm && bm.ShouldDoNow())
+                {
+                    return bm;
+                }
+            }
+
+            return null;
+        }
+
         public override string CompInspectStringExtra()
         {
-             Pawn patient = innerContainer.OfType<Pawn>().FirstOrDefault();
-             if (patient != null)
-             {
-                 Bill_Medical bill = GetFirstSurgeryBill(patient);
-                 if (bill != null)
-                 {
-                     return $"Operation: {bill.recipe.label}";
-                 }
-                 return "No pending operations";
-             }
-             return null;
+            Pawn patient = innerContainer.OfType<Pawn>().FirstOrDefault();
+            if (patient != null)
+            {
+                Bill_Medical bill = GetFirstSurgeryBill(patient);
+                if (bill != null)
+                {
+                    return $"Operation: {bill.recipe.label}";
+                }
+
+                return "No pending operations";
+            }
+
+            return null;
         }
 
         public override void PostDraw()
@@ -329,18 +286,11 @@ namespace YAMP
             Pawn patient = innerContainer.OfType<Pawn>().FirstOrDefault();
             if (patient != null)
             {
-                // Only animate if we have a bill? Or always if patient inside?
-                // Let's animate if patient is inside.
-                
                 Vector3 drawPos = parent.DrawPos;
-                drawPos.y += 0.04f; // Slightly above building
-                
-                // Rotate based on time
+                drawPos.y += 0.04f;
                 float angle = (Time.realtimeSinceStartup * 50f) % 360f;
-                
                 Matrix4x4 matrix = default(Matrix4x4);
-                matrix.SetTRS(drawPos, Quaternion.AngleAxis(angle, Vector3.up), new Vector3(2f, 1f, 2f)); // 2x2 size
-                
+                matrix.SetTRS(drawPos, Quaternion.AngleAxis(angle, Vector3.up), new Vector3(2f, 1f, 2f));
                 Graphics.DrawMesh(MeshPool.plane10, matrix, YAMP_Assets.ActiveOverlayMat, 0);
             }
         }

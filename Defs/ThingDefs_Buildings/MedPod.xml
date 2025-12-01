@@ -34,9 +34,8 @@
       <li Class="YAMP.CompProperties_MedPodFuel">
         <fuelCapacity>100.0</fuelCapacity>
       </li>
-      <li Class="YAMP.CompProperties_MedPodOperations"/>
+      <li Class="YAMP.CompProperties_MedPodSurgery"/>
       <li Class="YAMP.CompProperties_MedPodTend"/>
-      
       <li Class="CompProperties_Power">
         <compClass>CompPowerTrader</compClass>
         <basePowerConsumption>1000</basePowerConsumption>

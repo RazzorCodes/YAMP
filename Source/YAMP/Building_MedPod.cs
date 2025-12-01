@@ -6,8 +6,8 @@ namespace YAMP
 {
     public class Building_MedPod : Building
     {
-        // No longer implements IBillGiver.
-        // Acts as a container and processor.
+        // Reverted to standard Building.
+        // Patient is stored in CompMedPodOperations.innerContainer.
 
         public override void SpawnSetup(Map map, bool respawningAfterLoad)
         {

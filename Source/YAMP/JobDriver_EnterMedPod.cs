@@ -20,7 +20,7 @@ namespace YAMP
                 initAction = () =>
                 {
                     Building pod = (Building)job.targetA.Thing;
-                    CompMedPodOperations ops = pod.TryGetComp<CompMedPodOperations>();
+                    CompMedPodSurgery ops = pod.TryGetComp<CompMedPodSurgery>();
                     if (ops != null)
                     {
                         pawn.DeSpawn();

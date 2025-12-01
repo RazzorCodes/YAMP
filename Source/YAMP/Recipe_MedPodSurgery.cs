@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
@@ -6,59 +7,85 @@ using Verse;
 namespace YAMP
 {
     /// <summary>
-    /// Custom recipe worker for Med Pod operations that spawns harvested organs
-    /// in the pod's container instead of on the map
+    /// Utility class to handle Med Pod operations without a surgeon (billDoer).
+    /// Replicates the effects of standard recipes (Install, Remove, Administer) manually.
     /// </summary>
     public class Recipe_MedPodSurgery : Recipe_Surgery
     {
-        public override void ApplyOnPawn(Pawn pawn, BodyPartRecord part, Pawn billDoer, List<Thing> ingredients, Bill bill)
+        // We don't use ApplyOnPawn directly as a recipe worker anymore, 
+        // but we keep the class structure if needed for compatibility.
+
+        public static void DoMedPodSurgery(Pawn patient, Bill_Medical bill, List<Thing> ingredients,
+            ThingWithComps pod)
         {
-            // Find the Med Pod that contains this pawn
-            Building_MedPod pod = FindContainingMedPod(pawn);
-            
-            if (pod != null)
+            RecipeDef recipe = bill.recipe;
+            BodyPartRecord part = bill.Part;
+
+            // 1. Install Artificial/Natural Part
+            if (recipe.workerClass == typeof(Recipe_InstallArtificialBodyPart) ||
+                recipe.workerClass == typeof(Recipe_InstallNaturalBodyPart))
             {
-                // Temporarily override GenSpawn to capture spawned organs
-                var opsComp = pod.GetComp<CompMedPodOperations>();
-                if (opsComp != null)
+                if (part != null)
                 {
-                    // Store reference for organ capture
-                    currentOperationsComp = opsComp;
+                    // Restore the part (removes MissingBodyPart hediff)
+                    patient.health.RestorePart(part);
+                }
+
+                // Apply the added hediff (e.g., Bionic Leg)
+                if (recipe.addsHediff != null)
+                {
+                    patient.health.AddHediff(recipe.addsHediff, part);
                 }
             }
-            
-            // Call base implementation
-            base.ApplyOnPawn(pawn, part, billDoer, ingredients, bill);
-            
-            // Clear reference
-            currentOperationsComp = null;
-        }
-        
-        private static CompMedPodOperations currentOperationsComp;
-        
-        private Building_MedPod FindContainingMedPod(Pawn pawn)
-        {
-            if (pawn.Map == null) return null;
-            
-            foreach (Thing thing in pawn.Map.listerThings.ThingsOfDef(ThingDef.Named("YAMP_MedPod")))
+            // 2. Remove Body Part
+            else if (recipe.workerClass == typeof(Recipe_RemoveBodyPart))
             {
-                if (thing is Building_MedPod pod)
+                if (part != null)
                 {
-                    var opsComp = pod.GetComp<CompMedPodOperations>();
-                    if (opsComp?.innerContainer?.Contains(pawn) == true)
+                    // Spawn the removed part if applicable
+                    if (part.def.spawnThingOnRemoved != null)
                     {
-                        return pod;
+                        Thing partThing = ThingMaker.MakeThing(part.def.spawnThingOnRemoved);
+                        // Drop near the pod
+                        GenPlace.TryPlaceThing(partThing, pod.Position, pod.Map, ThingPlaceMode.Near);
                     }
+
+                    // Apply MissingBodyPart hediff
+                    patient.health.AddHediff(HediffDefOf.MissingBodyPart, part);
                 }
             }
-            return null;
-        }
-        
-        // Override to capture organ spawning
-        public override bool IsViolationOnPawn(Pawn pawn, BodyPartRecord part, Faction billDoerFaction)
-        {
-            // Med Pod operations are never violations
-            return false;
+            // 3. Administer Item (Drug)
+            else if (recipe.workerClass == typeof(Recipe_AdministerUsableItem))
+            {
+                if (ingredients.Count > 0)
+                {
+                    // Ingest the item
+                    ingredients[0].Ingested(patient, 0);
+                }
+            }
+            // 4. Anesthetize / Euthanize (Special Cases)
+            else if (recipe.defName == "Anesthetize")
+            {
+                patient.health.AddHediff(HediffDefOf.Anesthetic);
+            }
+            else if (recipe.defName == "Euthanize")
+            {
+                ExecutionUtility.DoExecutionByCut(null, patient);
+            }
+            // 5. Fallback
+            else
+            {
+                // Try to run the worker with null billDoer. 
+                // This is risky but handles other custom recipes.
+                try
+                {
+                    recipe.Worker.ApplyOnPawn(patient, part, null, ingredients, bill);
+                }
+                catch (Exception e)
+                {
+                    Log.Error($"YAMP: Failed to perform operation {recipe.label}: {e.Message}");
+                }
+            }
         }
     }
 }

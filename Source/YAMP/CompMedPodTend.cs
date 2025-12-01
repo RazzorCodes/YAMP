@@ -24,6 +24,17 @@ namespace YAMP
         public CompProperties_MedPodTend Props => (CompProperties_MedPodTend)props;
         // public ThingOwner innerContainer; // Removed: Uses CompMedPodOperations container
 
+        private CompMedPodFuel fuelComp;
+
+        public CompMedPodFuel FuelComp
+        {
+            get
+            {
+                if (fuelComp == null) fuelComp = parent.GetComp<CompMedPodFuel>();
+                return fuelComp;
+            }
+        }
+
         public override void CompTick()
         {
             base.CompTick();
@@ -36,7 +47,7 @@ namespace YAMP
         private void TryPerformTend()
         {
             // Get patient from Operations component
-            CompMedPodOperations ops = parent.GetComp<CompMedPodOperations>();
+            CompMedPodSurgery ops = parent.GetComp<CompMedPodSurgery>();
             if (ops == null || ops.innerContainer == null) return;
 
             Pawn patient = ops.innerContainer.OfType<Pawn>().FirstOrDefault();
@@ -78,7 +89,12 @@ namespace YAMP
             }
             else
             {
-                // Fix RNG logic: Rand.Value returns 0.0 to 1.0
+                CompMedPodFuel fuel = parent.GetComp<CompMedPodFuel>();
+                if (fuel != null)
+                {
+                    fuel.stock -= CalculateStockCost();
+                }
+
                 if (Rand.Value > Props.tendSuccessChance)
                 {
                     return false;
@@ -90,15 +106,13 @@ namespace YAMP
 
                 hediff.Tended(tendQuality, 1f, 0);
 
-                // Consume a small amount of fuel for tending
-                CompMedPodFuel fuel = parent.GetComp<CompMedPodFuel>();
-                if (fuel != null)
-                {
-                    fuel.stock -= 0.5f * Props.stockConsumptionFactor; // Small cost per tend
-                }
-
                 return true;
             }
+        }
+
+        private float CalculateStockCost()
+        {
+            return Props.stockConsumptionFactor;
         }
     }
 }
