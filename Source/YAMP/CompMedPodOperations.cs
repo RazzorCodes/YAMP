@@ -128,7 +128,13 @@ namespace YAMP
                     }
                 }
 
-                if (hasCount < neededCount) return false;
+                if (hasCount < neededCount)
+                {
+                    // Get a sample item name from the filter
+                    string itemName = ing.filter.Summary;
+                    Log.Warning($"YAMP: Missing {itemName} (need {neededCount}, have {hasCount}) for {recipe.label}");
+                    return false;
+                }
             }
             return true;
         }
@@ -145,26 +151,50 @@ namespace YAMP
             // Consume Stock
             FuelComp.stock -= stockCost;
 
-            // Consume Ingredients from innerContainer (excluding medicine)
+            // Prepare ingredients list - including medicine from fuel stock
             List<Thing> ingredients = new List<Thing>();
+            
             foreach (IngredientCount ing in recipe.ingredients)
             {
-                // Skip medicine - it's provided by fuel
-                if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
-                
-                float neededCount = ing.GetBaseCount();
-                
-                // Consume from innerContainer
-                for (int i = innerContainer.Count - 1; i >= 0; i--)
+                if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine))
                 {
-                    Thing t = innerContainer[i];
-                    if (ing.filter.Allows(t))
+                    // Get medicine from fuel comp
+                    if (FuelComp.innerContainer.Any)
                     {
-                        int toTake = Mathf.Min(t.stackCount, (int)neededCount);
-                        Thing taken = t.SplitOff(toTake);
-                        ingredients.Add(taken);
-                        neededCount -= toTake;
-                        if (neededCount <= 0) break;
+                        Thing medicine = FuelComp.innerContainer.First();
+                        int needed = (int)ing.GetBaseCount();
+                        if (medicine.stackCount >= needed)
+                        {
+                            Thing taken = medicine.SplitOff(needed);
+                            ingredients.Add(taken);
+                            Log.Message($"YAMP: Added {needed}x {taken.def.label} for {recipe.label}");
+                        }
+                        else
+                        {
+                            Log.Warning($"YAMP: Not enough medicine in fuel ({medicine.stackCount}/{needed}) for {recipe.label}");
+                        }
+                    }
+                    else
+                    {
+                        Log.Warning($"YAMP: No medicine in fuel container for {recipe.label}");
+                    }
+                }
+                else
+                {
+                    // Get non-medicine ingredients from operations container
+                    float neededCount = ing.GetBaseCount();
+                    
+                    for (int i = innerContainer.Count - 1; i >= 0; i--)
+                    {
+                        Thing t = innerContainer[i];
+                        if (ing.filter.Allows(t))
+                        {
+                            int toTake = Mathf.Min(t.stackCount, (int)neededCount);
+                            Thing taken = t.SplitOff(toTake);
+                            ingredients.Add(taken);
+                            neededCount -= toTake;
+                            if (neededCount <= 0) break;
+                        }
                     }
                 }
             }
@@ -177,9 +207,15 @@ namespace YAMP
                 // Use the bill's part
                 BodyPartRecord part = bill.Part;
                 
-                // Apply the recipe - this handles surgery, anesthetize, euthanize, etc.
-                recipe.Worker.ApplyOnPawn(patient, part, null, ingredients, bill); 
+                // Create a dummy surgeon pawn to avoid giving thoughts to the patient
+                Pawn dummySurgeon = CreateDummySurgeon();
+                
+                // Apply the recipe
+                recipe.Worker.ApplyOnPawn(patient, part, dummySurgeon, ingredients, bill); 
                 Messages.Message($"Operation {recipe.label} on {patient.LabelShort} completed successfully.", parent, MessageTypeDefOf.PositiveEvent);
+                
+                // Destroy the dummy surgeon
+                dummySurgeon.Destroy();
                 
                 // Complete the bill
                 patient.BillStack.Delete(bill);
@@ -196,6 +232,32 @@ namespace YAMP
             {
                 t.Destroy();
             }
+            
+            // Eject patient if dead
+            if (patient.Dead)
+            {
+                innerContainer.TryDropAll(parent.Position, parent.Map, ThingPlaceMode.Near);
+            }
+        }
+
+        private Pawn CreateDummySurgeon()
+        {
+            // Create a minimal dummy pawn to act as surgeon
+            PawnKindDef kind = PawnKindDefOf.Colonist;
+            Faction faction = Faction.OfPlayer;
+            
+            Pawn dummy = PawnGenerator.GeneratePawn(new PawnGenerationRequest(
+                kind,
+                faction,
+                forceGenerateNewPawn: true,
+                canGeneratePawnRelations: false,
+                colonistRelationChanceFactor: 0f
+            ));
+            
+            // Spawn the dummy on the map temporarily so organs can spawn at their position
+            GenSpawn.Spawn(dummy, parent.Position, parent.Map);
+            
+            return dummy;
         }
 
         public override IEnumerable<Gizmo> CompGetGizmosExtra()

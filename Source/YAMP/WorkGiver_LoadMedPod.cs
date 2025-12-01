@@ -125,6 +125,9 @@ namespace YAMP
         {
             foreach (IngredientCount ing in recipe.ingredients)
             {
+                // Skip medicine - it comes from fuel system
+                if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
+                
                 float needed = ing.GetBaseCount();
                 float has = 0;
                 
@@ -192,6 +195,9 @@ namespace YAMP
             foundIngredient = null;
             foreach (IngredientCount ing in recipe.ingredients)
             {
+                // Skip medicine - it comes from fuel system
+                if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
+                
                 float needed = ing.GetBaseCount();
                 float has = 0;
                 foreach (Thing t in ops.innerContainer)

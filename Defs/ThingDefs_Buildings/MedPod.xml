@@ -7,7 +7,7 @@
     <description>A technologically advanced medical pod that uses medicine as fuel to perform complex operations with high success rates.</description>
     <graphicData>
       <texPath>Things/Building/Medical/YAMP_MedPod</texPath>
-      <graphicClass>Graphic_Multi</graphicClass>
+      <graphicClass>Graphic_Single</graphicClass>
       <drawSize>(2,2)</drawSize>
     </graphicData>
     <size>(2,2)</size>
