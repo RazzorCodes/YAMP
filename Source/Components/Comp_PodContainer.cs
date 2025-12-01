@@ -51,5 +51,41 @@ namespace YAMP
         {
             return _container;
         }
+
+        public override IEnumerable<Gizmo> CompGetGizmosExtra()
+        {
+            foreach (Gizmo g in base.CompGetGizmosExtra()) yield return g;
+
+            // TODO: Add fuel filter configuration UI
+            // For now, filter accepts all medicine by default
+
+            yield return new Command_Action
+            {
+                defaultLabel = "Open Pod",
+                defaultDesc = "Open the pod to access the patient.",
+                icon = TexCommand.ForbidOff,
+                action = () =>
+                {
+                    if (_container != null)
+                    {
+                        var pawn = GetPawn();
+                        if (pawn != null)
+                        {
+                            _container.TryDrop(pawn, parent.Position, parent.Map, ThingPlaceMode.Near, out _);
+                        }
+                    }
+                }
+            };
+        }
+
+        public override void PostDraw()
+        {
+            base.PostDraw();
+            Pawn pawn = GetPawn();
+            if (pawn != null)
+            {
+                pawn.Drawer.renderer.RenderPawnAt(parent.DrawPos + new Vector3(0f, 0.05f, 0f));
+            }
+        }
     }
 }

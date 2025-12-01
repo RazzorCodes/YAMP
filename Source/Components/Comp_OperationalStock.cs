@@ -11,7 +11,6 @@ namespace YAMP
         public float fuelValueHerbal = 10f;
         public float fuelValueIndustrial = 30f;
         public float fuelValueGlitter = 100f;
-        public float fuelValueDefault = 20f;
 
         public CompProp_OperationalStock()
         {
@@ -36,7 +35,7 @@ namespace YAMP
             }
 
             Logger.Log("Warning", $"YAMP: Unknown medicine type: {def.defName}");
-            return fuelValueDefault;
+            return -1f;
         }
     }
 
@@ -131,9 +130,9 @@ namespace YAMP
                 .Select(group => new { Def = group.Key, Count = group.Sum(thing => thing.stackCount) })
                 .OrderBy(item => item.Def.label);
 
-            if (itemsInContainer.Any())
+            if (itemsInContainer.Where(item => Props.GetFuelValue(item.Def) > 0).Any())
             {
-                sb.AppendLine("Fuel Items:");
+                sb.AppendLine("Stock Items:");
                 foreach (var item in itemsInContainer)
                 {
                     sb.AppendLine($"  - {item.Def.LabelCap}: {item.Count}");
@@ -141,7 +140,7 @@ namespace YAMP
             }
             else
             {
-                sb.AppendLine("Fuel Items: None");
+                sb.AppendLine("Stock Items: None");
             }
 
             // 3. Total stock
