@@ -6,7 +6,7 @@ $destDir = "C:\Program Files (x86)\Steam\steamapps\common\RimWorld\Mods\$modName
 
 try {
     Write-Host "Building $modName..."
-    Set-Location "$sourceDir\Source\YAMP"
+    Set-Location "$sourceDir\Source"
     dotnet build -c Release
 
     if ($LASTEXITCODE -ne 0) {
@@ -20,34 +20,32 @@ try {
     }
 
     # Copy folders
-    $folders = @("About", "Defs", "Textures")
+    $folders = @("About", "Defs", "Textures", "Assemblies")
     foreach ($folder in $folders) {
         $src = "$sourceDir\$folder"
         $dst = "$destDir\$folder"
     
+        try
+        {
         if (Test-Path $src) {
-            Write-Host "Copying $folder..."
+            Write-Host "Copying $folder..." -NoNewline
             Copy-Item -Path $src -Destination $destDir -Recurse -Force
+            Write-Host " [OK]" -ForegroundColor Green
+        }
+        else {
+            Write-Host " [MISSING]" -ForegroundColor Yellow
         }
     }
-
-    # Copy Assembly
-    $assemblyDir = "$destDir\Assemblies"
-    if (-not (Test-Path $assemblyDir)) {
-        New-Item -ItemType Directory -Path $assemblyDir | Out-Null
+    catch {
+        Write-Error "[ERROR]" -ForegroundColor Red
+        THROW $_.Exception.Message
+    }
     }
 
-    $dllSrc = "$sourceDir\Source\YAMP\bin\Release\net472\YAMP.dll"
-    if (Test-Path $dllSrc) {
-        Write-Host "Copying Assembly..."
-        Copy-Item -Path $dllSrc -Destination "$assemblyDir\YAMP.dll" -Force
-    }
-    else {
-        Write-Error "DLL not found at $dllSrc"
-    }
     Write-Host "Deployment complete!"
 }
 catch {
+    Write-Error $_.Exception.Message
     Write-Error "Deployment failed!"
 }
 

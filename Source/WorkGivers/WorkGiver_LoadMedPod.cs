@@ -15,21 +15,21 @@ namespace YAMP
         {
             if (!(t is Building_MedPod pod)) return false;
 
-            CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
-            CompMedPodSurgery opsComp = pod.TryGetComp<CompMedPodSurgery>();
+            OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
+            Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
+            Comp_PodContainer podContainer = pod.TryGetComp<Comp_PodContainer>();
 
-            if (fuelComp == null || opsComp == null) return false;
+            if (fuelComp == null || opsComp == null || podContainer == null) return false;
 
-            // Check if we need fuel
-            if (fuelComp.StockPercent < 1.0f)
+            // Check if we need fuel (no max capacity check - just check if stock is low)
+            if (fuelComp.Stock < 100f)
             {
                 Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null) return true;
             }
 
             // Check if we need ingredients for operation
-            // Use InnerContainer for patient
-            Pawn patient = opsComp.innerContainer.OfType<Pawn>().FirstOrDefault();
+            Pawn patient = podContainer.GetPawn();
             if (patient != null)
             {
                 Bill_Medical bill = GetFirstSurgeryBill(patient);
@@ -50,11 +50,12 @@ namespace YAMP
         public override Job JobOnThing(Pawn pawn, Thing t, bool forced = false)
         {
             Building_MedPod pod = (Building_MedPod)t;
-            CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
-            CompMedPodSurgery opsComp = pod.TryGetComp<CompMedPodSurgery>();
+            OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
+            Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
+            Comp_PodContainer podContainer = pod.TryGetComp<Comp_PodContainer>();
 
             // Prioritize Fuel if very low
-            if (fuelComp.StockPercent < 0.5f)
+            if (fuelComp.Stock < 50f)
             {
                 Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null)
@@ -65,7 +66,7 @@ namespace YAMP
                 }
             }
 
-            Pawn patient = opsComp.innerContainer.OfType<Pawn>().FirstOrDefault();
+            Pawn patient = podContainer.GetPawn();
             if (patient != null)
             {
                 Bill_Medical bill = GetFirstSurgeryBill(patient);
@@ -83,7 +84,7 @@ namespace YAMP
             }
 
             // Fallback to fuel
-            if (fuelComp.StockPercent < 1.0f)
+            if (fuelComp.Stock < 100f)
             {
                 Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null)
@@ -113,7 +114,7 @@ namespace YAMP
 
         private Thing FindMedicine(Pawn pawn, Building_MedPod pod)
         {
-            CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
+            OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
             if (fuelComp == null) return null;
 
             // 1. Search nearby (linked) shelves
@@ -124,8 +125,11 @@ namespace YAMP
                 9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x)); // && fuelComp.fuelFilter.Allows(x));
         }
 
-        private Thing FindIngredientForRecipe(Pawn pawn, CompMedPodSurgery ops, RecipeDef recipe)
+        private Thing FindIngredientForRecipe(Pawn pawn, Comp_PodOperate ops, RecipeDef recipe)
         {
+            Comp_PodContainer podContainer = ops.parent.TryGetComp<Comp_PodContainer>();
+            if (podContainer == null) return null;
+
             foreach (IngredientCount ing in recipe.ingredients)
             {
                 if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
@@ -133,7 +137,7 @@ namespace YAMP
                 float needed = ing.GetBaseCount();
                 float has = 0;
 
-                foreach (Thing t in ops.innerContainer)
+                foreach (Thing t in podContainer.Get())
                 {
                     if (ing.filter.Allows(t)) has += t.stackCount;
                 }
@@ -154,16 +158,19 @@ namespace YAMP
             return null;
         }
 
-        private bool MissingIngredients(CompMedPodSurgery ops, RecipeDef recipe, out Thing foundIngredient)
+        private bool MissingIngredients(Comp_PodOperate ops, RecipeDef recipe, out Thing foundIngredient)
         {
             foundIngredient = null;
+            Comp_PodContainer podContainer = ops.parent.TryGetComp<Comp_PodContainer>();
+            if (podContainer == null) return false;
+
             foreach (IngredientCount ing in recipe.ingredients)
             {
                 if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
 
                 float needed = ing.GetBaseCount();
                 float has = 0;
-                foreach (Thing t in ops.innerContainer)
+                foreach (Thing t in podContainer.Get())
                 {
                     if (ing.filter.Allows(t)) has += t.stackCount;
                 }

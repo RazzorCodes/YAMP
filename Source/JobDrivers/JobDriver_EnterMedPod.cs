@@ -20,11 +20,11 @@ namespace YAMP
                 initAction = () =>
                 {
                     Building pod = (Building)job.targetA.Thing;
-                    CompMedPodSurgery ops = pod.TryGetComp<CompMedPodSurgery>();
-                    if (ops != null)
+                    Comp_PodContainer podContainer = pod.TryGetComp<Comp_PodContainer>();
+                    if (podContainer != null)
                     {
                         pawn.DeSpawn();
-                        ops.innerContainer.TryAdd(pawn);
+                        podContainer.GetDirectlyHeldThings().TryAdd(pawn);
                     }
                 },
                 defaultCompleteMode = ToilCompleteMode.Instant

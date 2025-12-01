@@ -4,6 +4,9 @@
     <LangVersion>latest</LangVersion>
     <OutputType>Library</OutputType>
     <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <OutputPath>..\Assemblies\</OutputPath>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendConfigurationToOutputPath>false</AppendConfigurationToOutputPath>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Assembly-CSharp">

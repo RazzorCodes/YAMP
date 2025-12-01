@@ -12,7 +12,8 @@
     </graphicData>
     <size>(2,2)</size>
     <tickerType>Normal</tickerType>
-    <rotatable>false</rotatable>
+    <rotatable>true</rotatable>
+    <interactionCellOffset>(0, 0, -1)</interactionCellOffset>
     <altitudeLayer>Building</altitudeLayer>
     <passability>PassThroughOnly</passability>
     <castEdgeShadows>true</castEdgeShadows>
@@ -31,11 +32,10 @@
       <ComponentSpacer>2</ComponentSpacer>
     </costList>
     <comps>
-      <li Class="YAMP.CompProperties_MedPodFuel">
-        <fuelCapacity>100.0</fuelCapacity>
-      </li>
-      <li Class="YAMP.CompProperties_MedPodSurgery"/>
-      <li Class="YAMP.CompProperties_MedPodTend"/>
+      <li Class="YAMP.CompProp_PodContainer"/>
+      <li Class="YAMP.CompProp_OperationalStock"/>
+      <li Class="YAMP.CompProp_PodOperate"/>
+      <li Class="YAMP.CompProp_PodTend"/>
       <li Class="CompProperties_Power">
         <compClass>CompPowerTrader</compClass>
         <basePowerConsumption>1000</basePowerConsumption>

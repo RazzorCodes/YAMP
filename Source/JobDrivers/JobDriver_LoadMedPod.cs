@@ -38,31 +38,33 @@ namespace YAMP
                 {
                     if (Item.def.IsMedicine)
                     {
-                        CompMedPodFuel fuelComp = Pod.TryGetComp<CompMedPodFuel>();
+                        OperationalStock operationalStock = Pod.TryGetComp<OperationalStock>();
+                        Comp_PodContainer podContainer = Pod.TryGetComp<Comp_PodContainer>();
                         // Put in fuel container
-                        if (fuelComp != null)
+                        if (operationalStock != null && podContainer != null)
                         {
                             pawn.carryTracker.TryDropCarriedThing(Pod.Position, ThingPlaceMode.Direct,
                                 out Thing droppedItem);
                             if (droppedItem != null)
                             {
                                 droppedItem.DeSpawn();
-                                fuelComp.innerContainer.TryAdd(droppedItem);
+                                podContainer.GetDirectlyHeldThings().TryAdd(droppedItem);
+                                operationalStock.ComputeStock();
                             }
                         }
                     }
                     else
                     {
-                        CompMedPodSurgery opsComp = Pod.TryGetComp<CompMedPodSurgery>();
+                        Comp_PodContainer podContainer = Pod.TryGetComp<Comp_PodContainer>();
                         // Put in operations container
-                        if (opsComp != null)
+                        if (podContainer != null)
                         {
                             pawn.carryTracker.TryDropCarriedThing(Pod.Position, ThingPlaceMode.Direct,
                                 out Thing droppedItem);
                             if (droppedItem != null)
                             {
                                 droppedItem.DeSpawn();
-                                opsComp.innerContainer.TryAdd(droppedItem);
+                                podContainer.GetDirectlyHeldThings().TryAdd(droppedItem);
                             }
                         }
                     }
