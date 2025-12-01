@@ -103,15 +103,30 @@ namespace YAMP
 
         private float GetFuelValue(ThingDef def)
         {
-            if (def == ThingDefOf.MedicineHerbal) return Props.fuelValueHerbal;
-            if (def == ThingDefOf.MedicineIndustrial) return Props.fuelValueIndustrial;
-            if (def.defName == "MedicineUltratech") return Props.fuelValueGlitter;
+            if (def == ThingDefOf.MedicineHerbal)
+            {
+                return Props.fuelValueHerbal;
+            }
+            if (def == ThingDefOf.MedicineIndustrial)
+            {
+                return Props.fuelValueIndustrial;
+            }
+            if (def == ThingDefOf.MedicineUltratech)
+            {
+                return Props.fuelValueGlitter;
+            }
+            
+            Log.Warning($"YAMP: Unknown medicine type: {def.defName}");
             return Props.fuelValueDefault;
         }
 
         public override string CompInspectStringExtra()
         {
-            return $"Stock: {stock:F1}/{Props.fuelCapacity} ({StockPercent:P0})\nProcessing: {stockBuffer:F1}\nFuel Items: {innerContainer.TotalStackCount}";
+            return $"""
+                Stock: {stock:F1}/{Props.fuelCapacity} ({StockPercent:P0})
+                Processing: {stockBuffer:F1}
+                Fuel Items: {innerContainer.TotalStackCount}
+                """;
         }
 
         public override IEnumerable<Gizmo> CompGetGizmosExtra()

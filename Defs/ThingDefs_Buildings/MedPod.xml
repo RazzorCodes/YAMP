@@ -26,19 +26,20 @@
     </statBases>
     <costList>
       <Steel>100</Steel>
-      <ComponentIndustrial>5</ComponentIndustrial>
-      <MedicineIndustrial>10</MedicineIndustrial>
+      <Plasteel>150</Plasteel>
+      <ComponentIndustrial>10</ComponentIndustrial>
+      <ComponentSpacer>2</ComponentSpacer>
     </costList>
     <comps>
       <li Class="YAMP.CompProperties_MedPodFuel">
         <fuelCapacity>100.0</fuelCapacity>
       </li>
-      <li Class="YAMP.CompProperties_MedPodOperations">
-        <!-- Configurable properties if needed -->
-      </li>
+      <li Class="YAMP.CompProperties_MedPodOperations"/>
+      <li Class="YAMP.CompProperties_MedPodTend"/>
+      
       <li Class="CompProperties_Power">
         <compClass>CompPowerTrader</compClass>
-        <basePowerConsumption>200</basePowerConsumption>
+        <basePowerConsumption>1000</basePowerConsumption>
       </li>
       <li Class="CompProperties_Flickable"/>
     </comps>

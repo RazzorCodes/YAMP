@@ -14,7 +14,7 @@ namespace YAMP
         public override bool HasJobOnThing(Pawn pawn, Thing t, bool forced = false)
         {
             if (!(t is Building_MedPod pod)) return false;
-            
+
             CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
             CompMedPodOperations opsComp = pod.TryGetComp<CompMedPodOperations>();
 
@@ -23,7 +23,7 @@ namespace YAMP
             // Check if we need fuel
             if (fuelComp.StockPercent < 1.0f)
             {
-                Thing medicine = FindMedicine(pawn);
+                Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null) return true;
             }
 
@@ -55,7 +55,7 @@ namespace YAMP
             // Prioritize Fuel if very low
             if (fuelComp.StockPercent < 0.5f)
             {
-                Thing medicine = FindMedicine(pawn);
+                Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null)
                 {
                     Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), medicine, pod);
@@ -74,17 +74,17 @@ namespace YAMP
                     Thing ingredient = FindIngredientForRecipe(pawn, opsComp, recipe);
                     if (ingredient != null)
                     {
-                         Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), ingredient, pod);
-                         job.count = ingredient.stackCount;
-                         return job;
+                        Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), ingredient, pod);
+                        job.count = ingredient.stackCount;
+                        return job;
                     }
                 }
             }
-            
+
             // Fallback to fuel
             if (fuelComp.StockPercent < 1.0f)
             {
-                 Thing medicine = FindMedicine(pawn);
+                Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null)
                 {
                     Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), medicine, pod);
@@ -107,18 +107,26 @@ namespace YAMP
                     return bm;
                 }
             }
+
             return null;
         }
 
-        private Thing FindMedicine(Pawn pawn)
+        private Thing FindMedicine(Pawn pawn, Building_MedPod pod)
         {
-            Building_MedPod pod = pawn.Map.thingGrid.ThingsListAtFast(pawn.Position).OfType<Building_MedPod>().FirstOrDefault();
-            if (pod == null) return null;
-            
             CompMedPodFuel fuelComp = pod.TryGetComp<CompMedPodFuel>();
             if (fuelComp == null) return null;
-            
-            return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map, ThingRequest.ForGroup(ThingRequestGroup.Medicine), PathEndMode.ClosestTouch, TraverseParms.For(pawn), 9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x) && fuelComp.fuelFilter.Allows(x));
+
+            // 1. Check adjacent shelves first (User requested/observed behavior)
+            Thing shelfMedicine = FindInAdjacentShelves(pod, null, fuelComp.fuelFilter);
+            if (shelfMedicine != null && pawn.CanReserve(shelfMedicine) && !shelfMedicine.IsForbidden(pawn))
+            {
+                return shelfMedicine;
+            }
+
+            // 2. Search the map
+            return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map,
+                ThingRequest.ForGroup(ThingRequestGroup.Medicine), PathEndMode.ClosestTouch, TraverseParms.For(pawn),
+                9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x) && fuelComp.fuelFilter.Allows(x));
         }
 
         private Thing FindIngredientForRecipe(Pawn pawn, CompMedPodOperations ops, RecipeDef recipe)
@@ -127,10 +135,10 @@ namespace YAMP
             {
                 // Skip medicine - it comes from fuel system
                 if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
-                
+
                 float needed = ing.GetBaseCount();
                 float has = 0;
-                
+
                 // Check what we already have in the pod
                 foreach (Thing t in ops.innerContainer)
                 {
@@ -145,15 +153,19 @@ namespace YAMP
                     {
                         return shelfItem;
                     }
-                    
+
                     // Then search the map
-                    return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map, ThingRequest.ForGroup(ThingRequestGroup.HaulableEver), PathEndMode.ClosestTouch, TraverseParms.For(pawn), 9999, x => ing.filter.Allows(x) && !x.IsForbidden(pawn) && pawn.CanReserve(x));
+                    return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map,
+                        ThingRequest.ForGroup(ThingRequestGroup.HaulableEver), PathEndMode.ClosestTouch,
+                        TraverseParms.For(pawn), 9999,
+                        x => ing.filter.Allows(x) && !x.IsForbidden(pawn) && pawn.CanReserve(x));
                 }
             }
+
             return null;
         }
 
-        private Thing FindInAdjacentShelves(Thing pod, IngredientCount ing)
+        private Thing FindInAdjacentShelves(Thing pod, IngredientCount ing = null, ThingFilter filter = null)
         {
             // Check left and right cells for shelves
             IntVec3[] adjacentCells = new IntVec3[]
@@ -167,7 +179,7 @@ namespace YAMP
             foreach (IntVec3 cell in adjacentCells)
             {
                 if (!cell.InBounds(pod.Map)) continue;
-                
+
                 foreach (Thing t in cell.GetThingList(pod.Map))
                 {
                     // Check if it's a shelf/storage building
@@ -178,15 +190,14 @@ namespace YAMP
                         {
                             foreach (Thing item in slotParent.GetSlotGroup().HeldThings)
                             {
-                                if (ing.filter.Allows(item))
-                                {
-                                    return item;
-                                }
+                                if (ing != null && ing.filter.Allows(item)) return item;
+                                if (filter != null && filter.Allows(item)) return item;
                             }
                         }
                     }
                 }
             }
+
             return null;
         }
 
@@ -197,7 +208,7 @@ namespace YAMP
             {
                 // Skip medicine - it comes from fuel system
                 if (ing.filter.AllowedThingDefs.Any(t => t.IsMedicine)) continue;
-                
+
                 float needed = ing.GetBaseCount();
                 float has = 0;
                 foreach (Thing t in ops.innerContainer)
@@ -210,6 +221,7 @@ namespace YAMP
                     return true;
                 }
             }
+
             return false;
         }
     }
