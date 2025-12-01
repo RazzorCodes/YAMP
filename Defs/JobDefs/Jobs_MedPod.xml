@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <JobDef>
+    <defName>YAMP_LoadMedPod</defName>
+    <driverClass>YAMP.JobDriver_LoadMedPod</driverClass>
+    <reportString>loading med pod.</reportString>
+    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
+  </JobDef>
+  
+  <JobDef>
+    <defName>YAMP_EnterMedPod</defName>
+    <driverClass>YAMP.JobDriver_EnterMedPod</driverClass>
+    <reportString>entering med pod.</reportString>
+  </JobDef>
+</Defs>

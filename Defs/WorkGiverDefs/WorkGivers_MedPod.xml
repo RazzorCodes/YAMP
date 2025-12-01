@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <WorkGiverDef>
+    <defName>YAMP_LoadMedPod</defName>
+    <label>load med pod</label>
+    <giverClass>YAMP.WorkGiver_LoadMedPod</giverClass>
+    <workType>Hauling</workType>
+    <priorityInType>100</priorityInType>
+    <verb>load</verb>
+    <gerund>loading</gerund>
+    <requiredCapacities>
+      <li>Manipulation</li>
+    </requiredCapacities>
+  </WorkGiverDef>
+</Defs>

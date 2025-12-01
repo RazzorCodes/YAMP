@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Defs>
+  <ThingDef ParentName="BuildingBase">
+    <defName>YAMP_MedPod</defName>
+    <thingClass>YAMP.Building_MedPod</thingClass>
+    <label>med pod</label>
+    <description>A technologically advanced medical pod that uses medicine as fuel to perform complex operations with high success rates.</description>
+    <graphicData>
+      <texPath>Things/Building/Medical/YAMP_MedPod</texPath>
+      <graphicClass>Graphic_Multi</graphicClass>
+      <drawSize>(2,2)</drawSize>
+    </graphicData>
+    <size>(2,2)</size>
+    <tickerType>Normal</tickerType>
+    <rotatable>false</rotatable>
+    <altitudeLayer>Building</altitudeLayer>
+    <passability>PassThroughOnly</passability>
+    <castEdgeShadows>true</castEdgeShadows>
+    <fillPercent>0.5</fillPercent>
+    <designationCategory>Misc</designationCategory>
+    <statBases>
+      <MaxHitPoints>350</MaxHitPoints>
+      <WorkToBuild>2500</WorkToBuild>
+      <Flammability>0.5</Flammability>
+      <Mass>50</Mass>
+    </statBases>
+    <costList>
+      <Steel>100</Steel>
+      <ComponentIndustrial>5</ComponentIndustrial>
+      <MedicineIndustrial>10</MedicineIndustrial>
+    </costList>
+    <comps>
+      <li Class="YAMP.CompProperties_MedPodFuel">
+        <fuelCapacity>100.0</fuelCapacity>
+      </li>
+      <li Class="YAMP.CompProperties_MedPodOperations">
+        <!-- Configurable properties if needed -->
+      </li>
+      <li Class="CompProperties_Power">
+        <compClass>CompPowerTrader</compClass>
+        <basePowerConsumption>200</basePowerConsumption>
+      </li>
+      <li Class="CompProperties_Flickable"/>
+    </comps>
+    <building>
+      <destroySound>BuildingDestroyed_Metal_Small</destroySound>
+    </building>
+  </ThingDef>
+</Defs>
