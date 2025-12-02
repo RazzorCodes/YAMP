@@ -36,37 +36,26 @@ namespace YAMP
             {
                 initAction = () =>
                 {
-                    if (Item.def.IsMedicine)
+                    Thing carriedThing = pawn.carryTracker.CarriedThing;
+                    if (carriedThing == null) return;
+
+                    PodContainer podContainer = Pod.Container;
+                    if (podContainer == null) return;
+
+                    if (carriedThing.def.IsMedicine)
                     {
                         OperationalStock operationalStock = Pod.TryGetComp<OperationalStock>();
-                        PodContainer podContainer = Pod.Container;
-                        // Put in fuel container
-                        if (operationalStock != null && podContainer != null)
+                        if (operationalStock != null)
                         {
-                            pawn.carryTracker.TryDropCarriedThing(Pod.Position, ThingPlaceMode.Direct,
-                                out Thing droppedItem);
-                            if (droppedItem != null)
-                            {
-                                droppedItem.DeSpawn();
-                                podContainer.GetDirectlyHeldThings().TryAdd(droppedItem);
-                                operationalStock.ComputeStock();
-                            }
+                            // Transfer directly to container
+                            pawn.carryTracker.innerContainer.TryTransferToContainer(carriedThing, podContainer.GetDirectlyHeldThings(), carriedThing.stackCount);
+                            operationalStock.ComputeStock();
                         }
                     }
                     else
                     {
-                        PodContainer podContainer = Pod.Container;
-                        // Put in operations container
-                        if (podContainer != null)
-                        {
-                            pawn.carryTracker.TryDropCarriedThing(Pod.Position, ThingPlaceMode.Direct,
-                                out Thing droppedItem);
-                            if (droppedItem != null)
-                            {
-                                droppedItem.DeSpawn();
-                                podContainer.GetDirectlyHeldThings().TryAdd(droppedItem);
-                            }
-                        }
+                        // Transfer directly to container
+                        pawn.carryTracker.innerContainer.TryTransferToContainer(carriedThing, podContainer.GetDirectlyHeldThings(), carriedThing.stackCount);
                     }
                 },
                 defaultCompleteMode = ToilCompleteMode.Instant

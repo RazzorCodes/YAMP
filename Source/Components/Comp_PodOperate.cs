@@ -30,17 +30,40 @@ namespace YAMP
         private PodContainer PodConatiner =>
             _podConatiner ??= ((Building_MedPod)parent).Container;
 
-        public override void CompTick()
+        private int currentTick = 0;
+        private bool isOperating = false;
+        private Bill_Medical currentBill = null;
+        private List<Thing> currentParts = null;
+
+        public override void PostExposeData()
+        {
+            base.PostExposeData();
+            Scribe_Values.Look(ref currentTick, "currentTick", 0);
+            Scribe_Values.Look(ref isOperating, "isOperating", false);
+        }
+
+        public override void CompTickRare()
         {
             if (PodConatiner.GetPawn() == null)
             {
-                Logger.Log("[Operate]", "No patient found in pod");
+                if (isOperating)
+                {
+                    CancelOperation();
+                }
                 return;
             }
 
-            if (parent.IsHashIntervalTick(250))
+            if (isOperating)
             {
-                TryPerformOperation();
+                currentTick++;
+                if (currentTick >= currentBill.recipe.workAmount / 2f)
+                {
+                    CompleteOperation();
+                }
+            }
+            else if (parent.IsHashIntervalTick(250))
+            {
+                TryStartOperation();
             }
         }
 
@@ -82,6 +105,8 @@ namespace YAMP
                         "[Operate]",
                         $"YAMP: Missing {ing.filter.Summary} for {bill.recipe.label}"
                     );
+                    // return them
+                    PodConatiner.Get().AddRange(ingredients);
                     return null;
                 }
             }
@@ -89,12 +114,11 @@ namespace YAMP
             return ingredients;
         }
 
-        public void TryPerformOperation()
+        public void TryStartOperation()
         {
             Pawn patient = PodConatiner.Get().OfType<Pawn>().FirstOrDefault();
             if (patient == null)
             {
-                Logger.Log("[Operate]", "No patient found in pod");
                 return;
             }
 
@@ -105,28 +129,75 @@ namespace YAMP
                 return;
             }
 
-            // Check if we have ingredients (EXCLUDING medicine - that comes from fuel)
-            var parts = GetParts(bill);
-            if (parts == null)
-            {
-                // Log what we're missing for debugging
-                Logger.Log("[Operate]", $"YAMP: Missing ingredients for {bill.recipe.label}");
-                return;
-            }
-
             // Check stock
             float stockCost = CalculateStockCost(bill);
             if (OperationalStock.Stock < stockCost)
             {
-                Log.Warning(
-                    $"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {bill.recipe.label}"
-                );
+                if (parent.IsHashIntervalTick(2500))
+                {
+                    Log.Warning($"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {bill.recipe.label}");
+                }
                 return;
             }
 
-            // Perform Operation
+            currentParts = GetParts(bill);
+            if (currentParts == null)
+            {
+                if (parent.IsHashIntervalTick(2500))
+                {
+                    Logger.Log("[Operate]", $"YAMP: Missing ingredients for {bill.recipe.label}");
+                }
+                return;
+            }
+
+            // Start Operation
+            isOperating = true;
+            currentTick = 0;
+            currentBill = bill;
+
+            PerformOperation(patient, bill, stockCost, currentParts);
+        }
+
+        private void CancelOperation()
+        {
+            isOperating = false;
+            currentTick = 0;
+            currentBill = null;
+            Logger.Log("[Operate]", "Operation cancelled");
+            ReturnParts(currentParts);
+        }
+
+        private void CompleteOperation()
+        {
+            isOperating = false;
+            currentTick = 0;
+
+            Pawn patient = PodConatiner.Get().OfType<Pawn>().FirstOrDefault();
+            if (patient == null) return;
+
+            Bill_Medical bill = currentBill;
+            currentBill = null;
+
+            if (bill == null)
+            {
+                // Try to find the bill again if we lost reference (e.g. after load)
+                bill = GetSurgeryBill(patient);
+                if (bill == null) return;
+            }
+
             Log.Message($"YAMP: Performing operation {bill.recipe.label} on {patient.LabelShort}");
-            PerformOperation(patient, bill, stockCost, parts);
+        }
+
+        private void ReturnParts(List<Thing> parts)
+        {
+            if (parts == null) return;
+            foreach (var part in parts)
+            {
+                if (!PodConatiner.GetDirectlyHeldThings().TryAdd(part))
+                {
+                    GenPlace.TryPlaceThing(part, parent.Position, parent.Map, ThingPlaceMode.Near);
+                }
+            }
         }
 
         private float CalculateStockCost(Bill_Medical bill)
@@ -158,6 +229,7 @@ namespace YAMP
                 Log.Warning(
                     $"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {recipe.label}"
                 );
+                ReturnParts(parts);
                 return;
             }
 
@@ -176,6 +248,7 @@ namespace YAMP
                     MessageTypeDefOf.RejectInput
                 );
                 ((Building_MedPod)parent).BillStack.Delete(bill); // Delete unsupported bill
+                ReturnParts(parts);
                 return;
             }
 
@@ -336,10 +409,15 @@ namespace YAMP
             Pawn patient = PodConatiner.GetPawn();
             if (patient != null)
             {
+                if (isOperating && currentBill != null)
+                {
+                    return $"Operating: {currentBill.recipe.label} ({(float)currentTick / (currentBill.recipe.workAmount / 2f):P0})";
+                }
+
                 Bill_Medical bill = GetSurgeryBill(patient);
                 if (bill != null)
                 {
-                    return $"Operation: {bill.recipe.label}";
+                    return $"Pending Operation: {bill.recipe.label}";
                 }
 
                 return "No pending operations";
@@ -356,6 +434,24 @@ namespace YAMP
             if (patient == null)
             {
                 return;
+            }
+
+            if (isOperating)
+            {
+                Vector3 barPos = parent.DrawPos;
+                barPos.y = AltitudeLayer.MetaOverlays.AltitudeFor();
+                barPos += Vector3.forward * 0.25f;
+
+                GenDraw.DrawFillableBar(new GenDraw.FillableBarRequest
+                {
+                    center = barPos,
+                    size = new Vector2(0.8f, 0.14f),
+                    fillPercent = (float)currentTick / (currentBill.recipe.workAmount / 2f),
+                    filledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.9f, 0.85f, 0.2f)),
+                    unfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.3f, 0.3f, 0.3f)),
+                    margin = 0.15f,
+                    rotation = Rot4.North
+                });
             }
 
             Vector3 drawPos = parent.DrawPos;

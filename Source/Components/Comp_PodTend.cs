@@ -1,6 +1,7 @@
 using RimWorld;
 using System;
 using System.Linq;
+using UnityEngine;
 using Verse;
 
 namespace YAMP
@@ -29,33 +30,81 @@ namespace YAMP
         private PodContainer _podConatiner;
         private PodContainer PodConatiner => _podConatiner ??= ((Building_MedPod)parent).Container;
 
+        private int ticksToComplete = 0;
+        private int currentTick = 0;
+        private bool isTending = false;
+
+        public override void PostExposeData()
+        {
+            base.PostExposeData();
+            Scribe_Values.Look(ref ticksToComplete, "ticksToComplete", 0);
+            Scribe_Values.Look(ref currentTick, "currentTick", 0);
+            Scribe_Values.Look(ref isTending, "isTending", false);
+        }
+
         public override void CompTick()
         {
             if (PodConatiner.GetPawn() == null)
             {
-                Logger.Log("[Operate]", "No patient found in pod");
+                if (isTending)
+                {
+                    CancelTend();
+                }
                 return;
             }
 
-            if (parent.IsHashIntervalTick(100))
+            if (isTending)
             {
-                TryPerformTend();
+                currentTick++;
+                if (currentTick >= ticksToComplete)
+                {
+                    CompleteTend();
+                }
+            }
+            else if (parent.IsHashIntervalTick(100))
+            {
+                TryStartTend();
             }
         }
 
-        private void TryPerformTend()
+        private void TryStartTend()
         {
             Pawn patient = PodConatiner.Get().OfType<Pawn>().FirstOrDefault();
             if (patient == null)
             {
-                Logger.Log("[Tend]", "No patient found in pod");
                 return;
             }
+
+            if (!MedPodCanTend(patient))
+            {
+                return;
+            }
+
+            // Start Tending
+            isTending = true;
+            currentTick = 0;
+            ticksToComplete = 120; // 2 seconds for tend
+        }
+
+        private void CancelTend()
+        {
+            isTending = false;
+            currentTick = 0;
+            Logger.Log("[Tend]", "Tend cancelled");
+        }
+
+        private void CompleteTend()
+        {
+            isTending = false;
+            currentTick = 0;
+
+            Pawn patient = PodConatiner.Get().OfType<Pawn>().FirstOrDefault();
+            if (patient == null) return;
 
             Logger.Log("[Tend]", "Tending patient " + patient.LabelShort);
             if (!MedPodCanTend(patient))
             {
-                Logger.Log("[Tend]", "Patient is not tendable");
+                Logger.Log("[Tend]", "Patient is no longer tendable");
                 return;
             }
 
@@ -112,6 +161,34 @@ namespace YAMP
         private float CalculateStockCost()
         {
             return Props.tendCost;
+        }
+
+        public override string CompInspectStringExtra()
+        {
+            if (isTending)
+            {
+                return $"Tending: {(float)currentTick / ticksToComplete:P0}";
+            }
+            return null;
+        }
+
+        public override void PostDraw()
+        {
+            base.PostDraw();
+
+            if (isTending)
+            {
+                GenDraw.DrawFillableBar(new GenDraw.FillableBarRequest
+                {
+                    center = parent.DrawPos + Vector3.up * 0.1f + Vector3.forward * 0.25f,
+                    size = new Vector2(0.8f, 0.14f),
+                    fillPercent = (float)currentTick / ticksToComplete,
+                    filledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.2f, 0.8f, 0.2f)), // Green for tend
+                    unfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.3f, 0.3f, 0.3f)),
+                    margin = 0.15f,
+                    rotation = Rot4.North
+                });
+            }
         }
     }
 }
