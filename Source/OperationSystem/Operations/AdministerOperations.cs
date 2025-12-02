@@ -20,7 +20,7 @@ namespace YAMP.OperationSystem
                 item.def.ingestible.outcomeDoers?.ForEach(doer =>
                     doer.DoIngestionOutcome(context.Patient, item, 1));
 
-                Log.Message($"[YAMP] Administered {item.Label} to {context.Patient.LabelShort}");
+                Logger.Log("YAMP", $"Administered {item.Label} to {context.Patient.LabelShort}");
             }
             else
             {
@@ -53,7 +53,7 @@ namespace YAMP.OperationSystem
             if (item != null)
             {
                 item.UsedBy(context.Patient);
-                Log.Message($"[YAMP] Administered {item.parent.Label} to {context.Patient.LabelShort}");
+                Logger.Log("YAMP", $"Administered {item.parent.Label} to {context.Patient.LabelShort}");
             }
         }
     }
@@ -74,7 +74,7 @@ namespace YAMP.OperationSystem
             if (bloodLossHediff != null)
             {
                 context.Patient.health.RemoveHediff(bloodLossHediff);
-                Log.Message($"[YAMP] Blood transfusion restored {context.Patient.LabelShort}");
+                Logger.Log("YAMP", $"Blood transfusion restored {context.Patient.LabelShort}");
             }
         }
     }
@@ -110,7 +110,7 @@ namespace YAMP.OperationSystem
 
                     context.Patient.health.AddHediff(hediff);
                     result.AppliedHediffs.Add(hediff);
-                    Log.Message($"[YAMP] Successfully implanted embryo in {context.Patient.LabelShort}");
+                    Logger.Log("YAMP", $"Successfully implanted embryo in {context.Patient.LabelShort}");
                 }
             }
         }
@@ -146,7 +146,7 @@ namespace YAMP.OperationSystem
             context.Patient.health.AddHediff(HediffDefOf.Anesthetic);
             context.Patient.health.forceDowned = false;
 
-            Log.Message($"[YAMP] Successfully anesthetized {context.Patient.LabelShort}");
+            Logger.Log("YAMP", $"Successfully anesthetized {context.Patient.LabelShort}");
         }
 
         protected override void HandleFailure(OperationContext context, OperationResult result)

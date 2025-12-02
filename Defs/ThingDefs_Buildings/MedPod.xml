@@ -13,12 +13,16 @@
     <size>(2,2)</size>
     <tickerType>Normal</tickerType>
     <rotatable>true</rotatable>
+    <hasInteractionCell>true</hasInteractionCell>
     <interactionCellOffset>(0, 0, -1)</interactionCellOffset>
     <altitudeLayer>Building</altitudeLayer>
     <passability>PassThroughOnly</passability>
     <castEdgeShadows>true</castEdgeShadows>
     <fillPercent>0.5</fillPercent>
     <designationCategory>Misc</designationCategory>
+    <inspectorTabs>
+      <li>YAMP.ITab_MedPodBills</li>
+    </inspectorTabs>
     <statBases>
       <MaxHitPoints>350</MaxHitPoints>
       <WorkToBuild>2500</WorkToBuild>
@@ -32,15 +36,14 @@
       <ComponentSpacer>2</ComponentSpacer>
     </costList>
     <comps>
-      <li Class="YAMP.CompProp_PodContainer"/>
-      <li Class="YAMP.CompProp_OperationalStock"/>
-      <li Class="YAMP.CompProp_PodOperate"/>
-      <li Class="YAMP.CompProp_PodTend"/>
+      <li Class="YAMP.CompProp_OperationalStock" />
+      <li Class="YAMP.CompProp_PodOperate" />
+      <li Class="YAMP.CompProp_PodTend" />
       <li Class="CompProperties_Power">
         <compClass>CompPowerTrader</compClass>
         <basePowerConsumption>1000</basePowerConsumption>
       </li>
-      <li Class="CompProperties_Flickable"/>
+      <li Class="CompProperties_Flickable" />
     </comps>
     <building>
       <destroySound>BuildingDestroyed_Metal_Small</destroySound>

@@ -23,10 +23,12 @@ namespace YAMP
         public CompProp_PodOperate Props => (CompProp_PodOperate)props;
 
         private OperationalStock _operationalStock;
-        private OperationalStock OperationalStock => _operationalStock ??= parent.GetComp<OperationalStock>();
+        private OperationalStock OperationalStock =>
+            _operationalStock ??= parent.GetComp<OperationalStock>();
 
-        private Comp_PodContainer _podConatiner;
-        private Comp_PodContainer PodConatiner => _podConatiner ??= parent.GetComp<Comp_PodContainer>();
+        private PodContainer _podConatiner;
+        private PodContainer PodConatiner =>
+            _podConatiner ??= ((Building_MedPod)parent).Container;
 
         public override void CompTick()
         {
@@ -42,26 +44,7 @@ namespace YAMP
             }
         }
 
-        private bool CheckParts(Bill_Medical bill)
-        {
-            foreach (var part in bill.recipe.ingredients)
-            {
-                if (part.filter.Allows(ThingDefOf.MedicineHerbal))
-                {
-                    continue;
-                }
-
-                if (part.GetBaseCount() > PodConatiner.Get().Where(t => part.filter.Allows(t)).Sum(t => t.stackCount))
-                {
-                    Logger.Log("[Operate]", $"YAMP: Missing {part.filter.Summary} for {bill.recipe.label}");
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        List<Thing> ReserveParts(Bill_Medical bill)
+        List<Thing> GetParts(Bill_Medical bill)
         {
             List<Thing> ingredients = new List<Thing>();
             foreach (IngredientCount ing in bill.recipe.ingredients)
@@ -72,7 +55,8 @@ namespace YAMP
                 }
 
                 int stillNeeded = (int)ing.GetBaseCount();
-                var candidates = PodConatiner.Get()
+                var candidates = PodConatiner
+                    .Get()
                     .Where(t => ing.filter.Allows(t))
                     .OrderBy(t => t.MarketValue)
                     .ToList();
@@ -94,7 +78,10 @@ namespace YAMP
 
                 if (stillNeeded > 0)
                 {
-                    Logger.Log("[Operate]", $"YAMP: Missing {ing.filter.Summary} for {bill.recipe.label}");
+                    Logger.Log(
+                        "[Operate]",
+                        $"YAMP: Missing {ing.filter.Summary} for {bill.recipe.label}"
+                    );
                     return null;
                 }
             }
@@ -119,7 +106,7 @@ namespace YAMP
             }
 
             // Check if we have ingredients (EXCLUDING medicine - that comes from fuel)
-            var parts = ReserveParts(bill);
+            var parts = GetParts(bill);
             if (parts == null)
             {
                 // Log what we're missing for debugging
@@ -131,7 +118,9 @@ namespace YAMP
             float stockCost = CalculateStockCost(bill);
             if (OperationalStock.Stock < stockCost)
             {
-                Log.Warning($"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {bill.recipe.label}");
+                Log.Warning(
+                    $"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {bill.recipe.label}"
+                );
                 return;
             }
 
@@ -154,24 +143,39 @@ namespace YAMP
             return stockCost;
         }
 
-        private void PerformOperation(Pawn patient, Bill_Medical bill, float stockCost, List<Thing> parts)
+        private void PerformOperation(
+            Pawn patient,
+            Bill_Medical bill,
+            float stockCost,
+            List<Thing> parts
+        )
         {
             RecipeDef recipe = bill.recipe;
 
             // Check stock availability
             if (OperationalStock.Stock < stockCost)
             {
-                Log.Warning($"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {recipe.label}");
+                Log.Warning(
+                    $"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {recipe.label}"
+                );
                 return;
             }
 
             // Get operation handler
-            var handler = YAMP.OperationSystem.OperationRegistry.GetHandler(recipe.Worker.GetType());
+            var handler = YAMP.OperationSystem.OperationRegistry.GetHandler(
+                recipe.Worker.GetType()
+            );
             if (handler == null)
             {
-                Log.Error($"[YAMP] No operation handler found for {recipe.Worker.GetType().Name} ({recipe.label})");
-                Messages.Message($"Med pod cannot perform: {recipe.label}", parent, MessageTypeDefOf.RejectInput);
-                patient.BillStack.Delete(bill); // Delete unsupported bill
+                Log.Error(
+                    $"[YAMP] No operation handler found for {recipe.Worker.GetType().Name} ({recipe.label})"
+                );
+                Messages.Message(
+                    $"Med pod cannot perform: {recipe.label}",
+                    parent,
+                    MessageTypeDefOf.RejectInput
+                );
+                ((Building_MedPod)parent).BillStack.Delete(bill); // Delete unsupported bill
                 return;
             }
 
@@ -191,7 +195,7 @@ namespace YAMP
                 {
                     if (!OperationalStock.TryConsumeStock(stockCost))
                     {
-                        Log.Warning($"[YAMP] Failed to consume stock during pre-op");
+                        Logger.Log("YAMP", $"Failed to consume stock during pre-op");
                     }
                 },
 
@@ -209,35 +213,47 @@ namespace YAMP
                                 if (!PodConatiner.GetDirectlyHeldThings().TryAdd(product))
                                 {
                                     // If container is full, spawn it back
-                                    GenPlace.TryPlaceThing(product, parent.Position, parent.Map, ThingPlaceMode.Near);
-                                    Log.Warning($"[YAMP] Container full, dropped {product.Label} on ground");
+                                    GenPlace.TryPlaceThing(
+                                        product,
+                                        parent.Position,
+                                        parent.Map,
+                                        ThingPlaceMode.Near
+                                    );
+                                    Log.Warning(
+                                        $"[YAMP] Container full, dropped {product.Label} on ground"
+                                    );
                                 }
                                 else
                                 {
-                                    Log.Message($"[YAMP] Collected product: {product.Label}");
+                                    Logger.Log("YAMP", $"Collected product: {product.Label}");
                                 }
                             }
                         }
                     }
-                }
+                },
             };
 
             // Perform the operation
             var result = handler.Perform(context);
 
             // ALWAYS delete the bill to prevent infinite retries
-            patient.BillStack.Delete(bill);
+            ((Building_MedPod)parent).BillStack.Delete(bill);
 
             if (result.Success)
             {
-                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} completed successfully.", parent,
-                    MessageTypeDefOf.PositiveEvent);
+                Messages.Message(
+                    $"Operation {recipe.label} on {patient.LabelShort} completed successfully.",
+                    parent,
+                    MessageTypeDefOf.PositiveEvent
+                );
             }
             else
             {
-                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} failed: {result.FailureReason}",
+                Messages.Message(
+                    $"Operation {recipe.label} on {patient.LabelShort} failed: {result.FailureReason}",
                     parent,
-                    MessageTypeDefOf.NegativeEvent);
+                    MessageTypeDefOf.NegativeEvent
+                );
 
                 // Light injury on failure
                 patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 5, 0, -1, null, null));
@@ -246,12 +262,15 @@ namespace YAMP
             // Eject patient if dead
             if (patient.Dead)
             {
-                PodConatiner.GetDirectlyHeldThings().TryDrop(
-                    PodConatiner.GetPawn(),
-                    parent.Position,
-                    parent.Map,
-                    ThingPlaceMode.Near,
-                    out _);
+                PodConatiner
+                    .GetDirectlyHeldThings()
+                    .TryDrop(
+                        PodConatiner.GetPawn(),
+                        parent.Position,
+                        parent.Map,
+                        ThingPlaceMode.Near,
+                        out _
+                    );
             }
         }
 
@@ -260,38 +279,49 @@ namespace YAMP
             if (!selPawn.CanReach(parent, PathEndMode.InteractionCell, Danger.Deadly))
             {
                 yield return new FloatMenuOption(
-                    "CannotEnter".Translate() + ": " + "NoPath".Translate().CapitalizeFirst(), null);
+                    "CannotEnter".Translate() + ": " + "NoPath".Translate().CapitalizeFirst(),
+                    null
+                );
                 yield break;
             }
 
             if (PodConatiner.GetPawn() != null)
             {
                 yield return new FloatMenuOption(
-                    "CannotEnter".Translate() + ": " + "Full".Translate().CapitalizeFirst(), null);
+                    "CannotEnter".Translate() + ": " + "Full".Translate().CapitalizeFirst(),
+                    null
+                );
                 yield break;
             }
 
-            yield return new FloatMenuOption("Enter Med Pod", () =>
-            {
-                Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_EnterMedPod"), parent);
-                selPawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
-            });
+            yield return new FloatMenuOption(
+                "Enter Med Pod",
+                () =>
+                {
+                    Job job = JobMaker.MakeJob(
+                        DefDatabase<JobDef>.GetNamed("YAMP_EnterMedPod"),
+                        parent
+                    );
+                    selPawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
+                }
+            );
         }
 
         private Bill_Medical GetSurgeryBill(Pawn patient)
         {
-            if (patient.BillStack == null)
+            var medPod = parent as Building_MedPod;
+            if (medPod?.BillStack == null)
             {
                 return null;
             }
 
             Bill_Medical bill = null;
-            foreach (Bill b in patient.BillStack)
+            foreach (Bill b in medPod.BillStack)
             {
                 if (b is Bill_Medical bm && bm.ShouldDoNow())
                 {
                     bill = bm;
-                    if (CheckParts(bm))
+                    if (GetParts(bm) != null)
                     {
                         return bm;
                     }
@@ -332,7 +362,11 @@ namespace YAMP
             drawPos.y += 0.04f;
             float angle = (Time.realtimeSinceStartup * 50f) % 360f;
             Matrix4x4 matrix = default(Matrix4x4);
-            matrix.SetTRS(drawPos, Quaternion.AngleAxis(angle, Vector3.up), new Vector3(2f, 1f, 2f));
+            matrix.SetTRS(
+                drawPos,
+                Quaternion.AngleAxis(angle, Vector3.up),
+                new Vector3(2f, 1f, 2f)
+            );
             Graphics.DrawMesh(MeshPool.plane10, matrix, YAMP_Assets.ActiveOverlayMat, 0);
         }
     }

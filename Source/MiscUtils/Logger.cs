@@ -7,6 +7,9 @@ class Logger
 {
     public static void Log(string type, string message)
     {
-        Verse.Log.Message($"[YAMP:{type}]: {message}");
+        if (false)
+        {
+            Verse.Log.Message($"[YAMP:{type}]: {message}");
+        }
     }
 }

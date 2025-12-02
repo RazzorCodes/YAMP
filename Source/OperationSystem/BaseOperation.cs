@@ -80,7 +80,7 @@ namespace YAMP.OperationSystem
                 result.Success = false;
                 result.Error = ex;
                 result.FailureReason = $"Exception: {ex.Message}";
-                Log.Error($"[YAMP] {Name} failed: {ex.Message}\n{ex.StackTrace}");
+                Logger.Log("YAMP", $"{Name} failed: {ex.Message}\n{ex.StackTrace}");
             }
 
             return result;
@@ -123,7 +123,7 @@ namespace YAMP.OperationSystem
             // Natural body part - only spawn if not missing
             if (
                 part?.def.spawnThingOnRemoved != null
-                && !patient?.health.hediffSet.PartIsMissing(part)
+                && patient != null && !patient.health.hediffSet.PartIsMissing(part)
             )
             {
                 var product = ThingMaker.MakeThing(part.def.spawnThingOnRemoved);

@@ -21,7 +21,7 @@ namespace YAMP.OperationSystem
         {
             // Execute instantly kills the pawn
             context.Patient.Kill(new DamageInfo(DamageDefOf.ExecutionCut, 99999, 999f, -1, null, null));
-            Log.Message($"[YAMP] Executed {context.Patient.LabelShort}");
+            Logger.Log("YAMP", $"Executed {context.Patient.LabelShort}");
         }
 
         protected override void HandleFailure(OperationContext context, OperationResult result)
@@ -51,7 +51,7 @@ namespace YAMP.OperationSystem
             if (pregnancyHediff != null)
             {
                 context.Patient.health.RemoveHediff(pregnancyHediff);
-                Log.Message($"[YAMP] Terminated pregnancy for {context.Patient.LabelShort}");
+                Logger.Log("YAMP", $"Terminated pregnancy for {context.Patient.LabelShort}");
             }
         }
     }

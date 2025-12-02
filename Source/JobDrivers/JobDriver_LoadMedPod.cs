@@ -11,7 +11,7 @@ namespace YAMP
         private const TargetIndex PodInd = TargetIndex.B;
 
         protected Thing Item => job.GetTarget(ItemInd).Thing;
-        protected Building Pod => (Building)job.GetTarget(PodInd).Thing;
+        protected Building_MedPod Pod => (Building_MedPod)job.GetTarget(PodInd).Thing;
 
         public override bool TryMakePreToilReservations(bool errorOnFailed)
         {
@@ -39,7 +39,7 @@ namespace YAMP
                     if (Item.def.IsMedicine)
                     {
                         OperationalStock operationalStock = Pod.TryGetComp<OperationalStock>();
-                        Comp_PodContainer podContainer = Pod.TryGetComp<Comp_PodContainer>();
+                        PodContainer podContainer = Pod.Container;
                         // Put in fuel container
                         if (operationalStock != null && podContainer != null)
                         {
@@ -55,7 +55,7 @@ namespace YAMP
                     }
                     else
                     {
-                        Comp_PodContainer podContainer = Pod.TryGetComp<Comp_PodContainer>();
+                        PodContainer podContainer = Pod.Container;
                         // Put in operations container
                         if (podContainer != null)
                         {

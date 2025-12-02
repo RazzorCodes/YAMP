@@ -16,7 +16,7 @@ namespace YAMP.OperationSystem
         static OperationRegistry()
         {
             RegisterDefaults();
-            Log.Message("[YAMP] Operation registry initialized");
+            Logger.Log("YAMP", $"Operation registry initialized");
         }
 
         private static void RegisterDefaults()
@@ -52,7 +52,7 @@ namespace YAMP.OperationSystem
         public static void Register(Type recipeWorkerType, IOperation handler)
         {
             _handlers[recipeWorkerType] = handler;
-            Log.Message($"[YAMP] Registered handler for: {recipeWorkerType.Name}");
+            Logger.Log("YAMP", $"Registered handler for: {recipeWorkerType.Name}");
         }
 
         public static IOperation GetHandler(Type recipeWorkerType)

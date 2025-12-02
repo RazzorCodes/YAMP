@@ -43,8 +43,8 @@ namespace YAMP
     {
         public CompProp_OperationalStock Props => (CompProp_OperationalStock)props;
 
-        private Comp_PodContainer _podConatiner;
-        private Comp_PodContainer PodConatiner => _podConatiner ??= parent.GetComp<Comp_PodContainer>();
+        private PodContainer _podConatiner;
+        private PodContainer PodConatiner => _podConatiner ??= ((Building_MedPod)parent).Container;
 
         private float buffer = 0f;
         private float stock = 0f;

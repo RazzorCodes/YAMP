@@ -26,8 +26,8 @@ namespace YAMP
         private OperationalStock _operationalStock;
         private OperationalStock OperationalStock => _operationalStock ??= parent.GetComp<OperationalStock>();
 
-        private Comp_PodContainer _podConatiner;
-        private Comp_PodContainer PodConatiner => _podConatiner ??= parent.GetComp<Comp_PodContainer>();
+        private PodContainer _podConatiner;
+        private PodContainer PodConatiner => _podConatiner ??= ((Building_MedPod)parent).Container;
 
         public override void CompTick()
         {

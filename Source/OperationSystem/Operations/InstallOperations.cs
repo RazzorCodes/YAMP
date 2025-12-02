@@ -37,7 +37,7 @@ namespace YAMP.OperationSystem
 
                 var hediff = context.Patient.health.AddHediff(hediffDef, context.BodyPart);
                 result.AppliedHediffs.Add(hediff);
-                Log.Message($"[YAMP] Installed {hediffDef.label} on {context.Patient.LabelShort}");
+                Logger.Log("YAMP", $"Installed {hediffDef.label} on {context.Patient.LabelShort}");
             }
 
             // Spawn products at facility location

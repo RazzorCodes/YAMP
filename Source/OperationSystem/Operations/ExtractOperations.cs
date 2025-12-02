@@ -41,7 +41,7 @@ namespace YAMP.OperationSystem
 
             context.Patient.health.AddHediff(HediffDefOf.BloodLoss).Severity = hemogenLossAmount;
 
-            Log.Message($"[YAMP] Successfully extracted hemogen from {context.Patient.LabelShort}");
+            Logger.Log("YAMP", $"Successfully extracted hemogen from {context.Patient.LabelShort}");
         }
 
         protected override void HandleFailure(OperationContext context, OperationResult result)
@@ -81,7 +81,7 @@ namespace YAMP.OperationSystem
                 GenPlace.TryPlaceThing(ovum, context.Facility.Position, context.Facility.Map, ThingPlaceMode.Near);
             }
 
-            Log.Message($"[YAMP] Successfully extracted ovum from {context.Patient.LabelShort}");
+            Logger.Log("YAMP", $"Successfully extracted ovum from {context.Patient.LabelShort}");
         }
     }
 }

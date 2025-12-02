@@ -17,7 +17,7 @@ namespace YAMP
 
             OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
             Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
-            Comp_PodContainer podContainer = pod.TryGetComp<Comp_PodContainer>();
+            PodContainer podContainer = pod.Container;
 
             if (fuelComp == null || opsComp == null || podContainer == null) return false;
 
@@ -32,7 +32,7 @@ namespace YAMP
             Pawn patient = podContainer.GetPawn();
             if (patient != null)
             {
-                Bill_Medical bill = GetFirstSurgeryBill(patient);
+                Bill_Medical bill = GetFirstSurgeryBill(pod);
                 if (bill != null)
                 {
                     RecipeDef recipe = bill.recipe;
@@ -52,7 +52,7 @@ namespace YAMP
             Building_MedPod pod = (Building_MedPod)t;
             OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
             Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
-            Comp_PodContainer podContainer = pod.TryGetComp<Comp_PodContainer>();
+            PodContainer podContainer = pod.Container;
 
             // Prioritize Fuel if very low
             if (fuelComp.Stock < 50f)
@@ -69,7 +69,7 @@ namespace YAMP
             Pawn patient = podContainer.GetPawn();
             if (patient != null)
             {
-                Bill_Medical bill = GetFirstSurgeryBill(patient);
+                Bill_Medical bill = GetFirstSurgeryBill(pod);
                 if (bill != null)
                 {
                     RecipeDef recipe = bill.recipe;
@@ -98,10 +98,10 @@ namespace YAMP
             return null;
         }
 
-        private Bill_Medical GetFirstSurgeryBill(Pawn patient)
+        private Bill_Medical GetFirstSurgeryBill(Building_MedPod pod)
         {
-            if (patient.BillStack == null) return null;
-            foreach (Bill b in patient.BillStack)
+            if (pod?.BillStack == null) return null;
+            foreach (Bill b in pod.BillStack)
             {
                 if (b is Bill_Medical bm && bm.ShouldDoNow())
                 {
@@ -127,8 +127,8 @@ namespace YAMP
 
         private Thing FindIngredientForRecipe(Pawn pawn, Comp_PodOperate ops, RecipeDef recipe)
         {
-            Comp_PodContainer podContainer = ops.parent.TryGetComp<Comp_PodContainer>();
-            if (podContainer == null) return null;
+            Building_MedPod pod = ops.parent as Building_MedPod;
+            if (pod?.Container == null) return null;
 
             foreach (IngredientCount ing in recipe.ingredients)
             {
@@ -137,7 +137,7 @@ namespace YAMP
                 float needed = ing.GetBaseCount();
                 float has = 0;
 
-                foreach (Thing t in podContainer.Get())
+                foreach (Thing t in pod.Container.Get())
                 {
                     if (ing.filter.Allows(t)) has += t.stackCount;
                 }
@@ -161,8 +161,8 @@ namespace YAMP
         private bool MissingIngredients(Comp_PodOperate ops, RecipeDef recipe, out Thing foundIngredient)
         {
             foundIngredient = null;
-            Comp_PodContainer podContainer = ops.parent.TryGetComp<Comp_PodContainer>();
-            if (podContainer == null) return false;
+            Building_MedPod pod = ops.parent as Building_MedPod;
+            if (pod?.Container == null) return false;
 
             foreach (IngredientCount ing in recipe.ingredients)
             {
@@ -170,7 +170,7 @@ namespace YAMP
 
                 float needed = ing.GetBaseCount();
                 float has = 0;
-                foreach (Thing t in podContainer.Get())
+                foreach (Thing t in pod.Container.Get())
                 {
                     if (ing.filter.Allows(t)) has += t.stackCount;
                 }
