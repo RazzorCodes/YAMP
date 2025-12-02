@@ -144,66 +144,115 @@ namespace YAMP
 
             foreach (RecipeDef recipe in recipes)
             {
-                // Check if recipe is applicable
+                // Basic availability check
                 if (!recipe.AvailableNow || !recipe.AvailableOnNow(patient))
                 {
                     continue;
                 }
 
-                // Create menu option
-                string label = recipe.LabelCap;
-                Action action = () =>
+                // Ingredient availability check
+                if (!IngredientsAvailable(recipe))
                 {
-                    if (!recipe.targetsBodyPart)
+                    continue;
+                }
+
+                if (recipe.targetsBodyPart)
+                {
+                    // Flattened: Add an option for each valid body part
+                    IEnumerable<BodyPartRecord> parts = recipe.Worker.GetPartsToApplyOn(patient, recipe);
+                    foreach (BodyPartRecord part in parts)
                     {
-                        // No body part selection needed
+                        string label = $"{recipe.LabelCap} ({part.Label})";
+                        Action action = () =>
+                        {
+                            Bill_Medical bill = new Bill_Medical(recipe, null);
+                            bill.Part = part;
+                            SelMedPod.BillStack.AddBill(bill);
+                        };
+                        options.Add(new FloatMenuOption(label, action));
+                    }
+                }
+                else
+                {
+                    // No body part needed
+                    string label = recipe.LabelCap;
+                    Action action = () =>
+                    {
                         Bill_Medical bill = new Bill_Medical(recipe, null);
                         SelMedPod.BillStack.AddBill(bill);
-                    }
-                    else
-                    {
-                        // Need to select body part
-                        OpenBodyPartMenu(recipe, patient);
-                    }
-                };
-
-                options.Add(new FloatMenuOption(label, action));
+                    };
+                    options.Add(new FloatMenuOption(label, action));
+                }
             }
 
             if (options.Count == 0)
             {
-                options.Add(new FloatMenuOption("No available surgeries", null));
+                options.Add(new FloatMenuOption("No available surgeries (check ingredients)", null));
+            }
+            else
+            {
+                // Sort options alphabetically for better usability
+                options.SortBy(o => o.Label);
             }
 
             Find.WindowStack.Add(new FloatMenu(options));
         }
 
-        private void OpenBodyPartMenu(RecipeDef recipe, Pawn patient)
+        private bool IngredientsAvailable(RecipeDef recipe)
         {
-            List<FloatMenuOption> options = new List<FloatMenuOption>();
+            // If no ingredients, it's available
+            if (recipe.ingredients == null || recipe.ingredients.Count == 0) return true;
 
-            // Get applicable body parts
-            IEnumerable<BodyPartRecord> parts = recipe.Worker.GetPartsToApplyOn(patient, recipe);
-
-            foreach (BodyPartRecord part in parts)
+            foreach (IngredientCount ing in recipe.ingredients)
             {
-                string label = part.Label;
-                Action action = () =>
+                // Skip medicine check as per requirements (handled by fuel/internal stock)
+                if (ing.filter.Allows(ThingDefOf.MedicineHerbal))
                 {
-                    Bill_Medical bill = new Bill_Medical(recipe, null);
-                    bill.Part = part;
-                    SelMedPod.BillStack.AddBill(bill);
-                };
+                    continue;
+                }
 
-                options.Add(new FloatMenuOption(label, action));
+                float needed = ing.GetBaseCount();
+                float found = 0;
+
+                // 1. Check inside the pod
+                foreach (Thing t in SelMedPod.Container.GetDirectlyHeldThings())
+                {
+                    if (ing.filter.Allows(t))
+                    {
+                        found += t.stackCount;
+                    }
+                }
+
+                if (found >= needed) continue;
+
+                // 2. Check on the map
+                // We iterate through all allowed ThingDefs in the filter to find them on the map
+                if (SelMedPod.Map != null)
+                {
+                    foreach (ThingDef def in ing.filter.AllowedThingDefs)
+                    {
+                        // Use ListerThings for performance
+                        List<Thing> mapThings = SelMedPod.Map.listerThings.ThingsOfDef(def);
+                        if (mapThings != null)
+                        {
+                            foreach (Thing t in mapThings)
+                            {
+                                if (!t.IsForbidden(Faction.OfPlayer) && !t.Position.Fogged(SelMedPod.Map))
+                                {
+                                    found += t.stackCount;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (found < needed)
+                {
+                    return false;
+                }
             }
 
-            if (options.Count == 0)
-            {
-                options.Add(new FloatMenuOption("No applicable body parts", null));
-            }
-
-            Find.WindowStack.Add(new FloatMenu(options));
+            return true;
         }
     }
 }

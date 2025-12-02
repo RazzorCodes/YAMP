@@ -27,20 +27,30 @@ namespace YAMP
         public void ExposeData()
         {
             Scribe_Deep.Look(ref _container, "innerContainer", _owner);
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                if (_container == null)
+                {
+                    _container = new ThingOwner<Thing>(_owner);
+                }
+            }
         }
 
         public List<Thing> Get()
         {
+            if (_container == null) _container = new ThingOwner<Thing>(_owner);
             return _container.ToList();
         }
 
         public Pawn GetPawn()
         {
+            if (_container == null) _container = new ThingOwner<Thing>(_owner);
             return _container.OfType<Pawn>().FirstOrDefault();
         }
 
         public ThingOwner GetDirectlyHeldThings()
         {
+            if (_container == null) _container = new ThingOwner<Thing>(_owner);
             return _container;
         }
     }
