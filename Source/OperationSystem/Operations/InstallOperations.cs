@@ -6,7 +6,7 @@ namespace YAMP.OperationSystem
 {
     // ==================== INSTALL OPERATIONS ====================
 
-    public class InstallPartOperation : BaseOperation, ISurgery
+    public class InstallPartOperation : BaseOperation
     {
         public override string Name => "Install Body Part";
 
@@ -50,37 +50,5 @@ namespace YAMP.OperationSystem
                 }
             }
         }
-    }
-
-    /// <summary>
-    /// Install artificial body part (bionics) - adds hediff from recipe
-    /// </summary>
-    public class InstallArtificialPartOperation : InstallPartOperation
-    {
-        public override string Name => "Install Artificial Body Part";
-    }
-
-    /// <summary>
-    /// Install natural body part (organs) - adds hediff from recipe
-    /// </summary>
-    public class InstallNaturalPartOperation : InstallPartOperation
-    {
-        public override string Name => "Install Natural Body Part";
-    }
-
-    /// <summary>
-    /// Install implant - adds hediff from recipe
-    /// </summary>
-    public class InstallImplantOperation : InstallPartOperation
-    {
-        public override string Name => "Install Implant";
-    }
-
-    /// <summary>
-    /// Install IUD - adds hediff from recipe
-    /// </summary>
-    public class InstallIUDOperation : InstallPartOperation
-    {
-        public override string Name => "Install IUD";
     }
 }

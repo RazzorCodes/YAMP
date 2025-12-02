@@ -8,7 +8,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Execute pawn by cutting (euthanasia)
     /// </summary>
-    public class ExecuteByCutOperation : BaseOperation, IExecute
+    public class ExecuteByCutOperation : BaseOperation
     {
         public override string Name => "Execute by Cutting";
 
@@ -35,7 +35,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Terminate pregnancy - removes pregnancy hediff
     /// </summary>
-    public class TerminatePregnancyOperation : BaseOperation, IExecute
+    public class TerminatePregnancyOperation : BaseOperation
     {
         public override string Name => "Terminate Pregnancy";
 

@@ -8,11 +8,10 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Extract hemogen from pawn
     /// </summary>
-    public class ExtractHemogenOperation : BaseOperation, IExtract
+    public class ExtractHemogenOperation : BaseOperation
     {
         public override string Name => "Extract Hemogen";
         public float hemogenLossAmount = 0.45f;
-
 
         public bool CanExtract(Pawn patient)
         {
@@ -56,7 +55,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Extract ovum from female pawn
     /// </summary>
-    public class ExtractOvumOperation : BaseOperation, IExtract
+    public class ExtractOvumOperation : BaseOperation
     {
         public override string Name => "Extract Ovum";
 

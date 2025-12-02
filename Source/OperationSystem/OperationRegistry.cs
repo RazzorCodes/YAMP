@@ -22,10 +22,10 @@ namespace YAMP.OperationSystem
         private static void RegisterDefaults()
         {
             // ===== INSTALL OPERATIONS =====
-            Register(typeof(Recipe_InstallArtificialBodyPart), new InstallArtificialPartOperation());
-            Register(typeof(Recipe_InstallNaturalBodyPart), new InstallNaturalPartOperation());
-            Register(typeof(Recipe_InstallImplant), new InstallImplantOperation());
-            Register(typeof(Recipe_ImplantIUD), new InstallIUDOperation());
+            Register(typeof(Recipe_InstallArtificialBodyPart), new InstallPartOperation());
+            Register(typeof(Recipe_InstallNaturalBodyPart), new InstallPartOperation());
+            Register(typeof(Recipe_InstallImplant), new InstallPartOperation());
+            Register(typeof(Recipe_ImplantIUD), new InstallPartOperation());
 
             // ===== REMOVE OPERATIONS =====
             Register(typeof(Recipe_RemoveBodyPart), new RemovePartOperation());

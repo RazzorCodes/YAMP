@@ -9,7 +9,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Remove body part (surgical amputation)
     /// </summary>
-    public class RemovePartOperation : BaseOperation, ISurgery
+    public class RemovePartOperation : BaseOperation
     {
         public override string Name => "Remove Body Part";
 
@@ -40,12 +40,18 @@ namespace YAMP.OperationSystem
             {
                 foreach (var product in result.Products)
                 {
-                    GenPlace.TryPlaceThing(product, context.Facility.Position, context.Facility.Map,
-                        ThingPlaceMode.Near);
+                    GenPlace.TryPlaceThing(
+                        product,
+                        context.Facility.Position,
+                        context.Facility.Map,
+                        ThingPlaceMode.Near
+                    );
                 }
             }
 
-            Log.Message($"[YAMP] Successfully removed {context.BodyPart.Label} from {context.Patient.LabelShort}");
+            Log.Message(
+                $"[YAMP] Successfully removed {context.BodyPart.Label} from {context.Patient.LabelShort}"
+            );
         }
     }
 }

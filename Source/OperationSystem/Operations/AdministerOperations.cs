@@ -7,7 +7,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Administer ingestible items (drugs, anesthesia, etc.) - applies recipe effects
     /// </summary>
-    public class AdministerIngestibleOperation : BaseOperation, IAdminister
+    public class AdministerIngestibleOperation : BaseOperation
     {
         public override string Name => "Administer Ingestible";
 
@@ -39,7 +39,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Administer usable items
     /// </summary>
-    public class AdministerUsableItemOperation : BaseOperation, IAdminister
+    public class AdministerUsableItemOperation : BaseOperation
     {
         public override string Name => "Administer Usable Item";
         public ThingDef ItemDef => null;
@@ -48,10 +48,12 @@ namespace YAMP.OperationSystem
         protected override void ExecuteOperation(OperationContext context, OperationResult result)
         {
             // Similar to ingestible but for usable items
-            var item = context.Ingredients?.FirstOrDefault();
+            CompUsable item = null;
+            context.Ingredients?.FirstOrDefault().TryGetComp<CompUsable>(out item);
             if (item != null)
             {
-                Log.Message($"[YAMP] Administered {item.Label} to {context.Patient.LabelShort}");
+                item.UsedBy(context.Patient);
+                Log.Message($"[YAMP] Administered {item.parent.Label} to {context.Patient.LabelShort}");
             }
         }
     }
@@ -59,7 +61,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Blood transfusion - removes blood loss hediff
     /// </summary>
-    public class BloodTransfusionOperation : BaseOperation, IAdminister
+    public class BloodTransfusionOperation : BaseOperation
     {
         public override string Name => "Blood Transfusion";
         public ThingDef ItemDef => ThingDefOf.MedicineIndustrial;
@@ -80,7 +82,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Implant embryo - makes pawn pregnant
     /// </summary>
-    public class ImplantEmbryoOperation : BaseOperation, IAdminister
+    public class ImplantEmbryoOperation : BaseOperation
     {
         public override string Name => "Implant Embryo";
         public ThingDef ItemDef => null; // Uses embryo from ingredients
@@ -124,7 +126,7 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Anesthetize pawn
     /// </summary>
-    public class AnesthetizeOperation : BaseOperation, IAdminister
+    public class AnesthetizeOperation : BaseOperation
     {
         public override string Name => "Anesthetize";
 

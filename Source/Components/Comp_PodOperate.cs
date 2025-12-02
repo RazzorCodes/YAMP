@@ -179,6 +179,7 @@ namespace YAMP
             var context = new YAMP.OperationSystem.OperationContext
             {
                 Patient = patient,
+                Bill = bill,
                 BodyPart = bill.Part,
                 Ingredients = parts,
                 Facility = parent,
