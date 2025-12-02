@@ -56,9 +56,6 @@ namespace YAMP
         {
             foreach (Gizmo g in base.CompGetGizmosExtra()) yield return g;
 
-            // TODO: Add fuel filter configuration UI
-            // For now, filter accepts all medicine by default
-
             yield return new Command_Action
             {
                 defaultLabel = "Open Pod",
@@ -76,6 +73,32 @@ namespace YAMP
                     }
                 }
             };
+
+            // Eject Products gizmo - Only for surgery products (not pawns, not medicine)
+            var products = _container.Where(t => !(t is Pawn) && !t.def.IsMedicine).ToList();
+            if (products.Any())
+            {
+                yield return new Command_Action
+                {
+                    defaultLabel = "Eject Products",
+                    defaultDesc = $"Eject {products.Count} surgery product(s) from the pod.",
+                    icon = TexCommand.GatherSpotActive,
+                    action = () =>
+                    {
+                        int ejected = 0;
+                        foreach (Thing product in products.ToList())
+                        {
+                            if (_container.TryDrop(product, parent.Position, parent.Map, ThingPlaceMode.Near, out _))
+                            {
+                                ejected++;
+                            }
+                        }
+
+                        Messages.Message($"Ejected {ejected} product(s) from med pod.", parent,
+                            MessageTypeDefOf.TaskCompletion);
+                    }
+                };
+            }
         }
 
         public override void PostDraw()

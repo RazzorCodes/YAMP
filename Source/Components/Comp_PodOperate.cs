@@ -157,42 +157,95 @@ namespace YAMP
         {
             RecipeDef recipe = bill.recipe;
 
-            if (!OperationalStock.TryConsumeStock(stockCost))
+            // Check stock availability
+            if (OperationalStock.Stock < stockCost)
             {
                 Log.Warning($"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {recipe.label}");
                 return;
             }
 
-            var ingredients = ReserveParts(bill);
-            if (ingredients == null)
+            // Check ingredients availability
+            if (!CheckParts(bill))
             {
-                Log.Warning($"YAMP: Not enough ingredients for {bill.recipe.label}");
+                Log.Warning($"YAMP: Missing ingredients for {bill.recipe.label}");
                 return;
             }
 
-            // Apply Surgery/Medical Operation
-            if (Rand.Value <= Props.surgerySuccessChance)
+            // Get operation handler
+            var handler = YAMP.OperationSystem.OperationRegistry.GetHandler(recipe.Worker.GetType());
+            if (handler == null)
             {
-                // Apply the recipe
-                MedPodSurgery.Execute(patient, bill, ingredients, parent);
+                Log.Error($"[YAMP] No operation handler found for {recipe.Worker.GetType().Name} ({recipe.label})");
+                Messages.Message($"Med pod cannot perform: {recipe.label}", parent, MessageTypeDefOf.RejectInput);
+                patient.BillStack.Delete(bill); // Delete unsupported bill
+                return;
+            }
+
+            // Create operation context with med pod customizations
+            var context = new YAMP.OperationSystem.OperationContext
+            {
+                Patient = patient,
+                BodyPart = bill.Part,
+                Ingredients = new List<Thing>(), // Virtual ingredients - not used
+                Facility = parent,
+                Surgeon = null, // Automated surgery
+                SuccessChance = Props.surgerySuccessChance,
+
+                // Pre-operation: Consume operational stock
+                PreOperationHook = (ctx) =>
+                {
+                    if (!OperationalStock.TryConsumeStock(stockCost))
+                    {
+                        Log.Warning($"[YAMP] Failed to consume stock during pre-op");
+                    }
+                },
+
+                // Post-operation: Collect products into pod container
+                PostOperationHook = (ctx, result) =>
+                {
+                    if (result.Success)
+                    {
+                        // Add any products to the pod container
+                        foreach (var product in result.Products)
+                        {
+                            if (product.Spawned)
+                            {
+                                product.DeSpawn();
+                                if (!PodConatiner.GetDirectlyHeldThings().TryAdd(product))
+                                {
+                                    // If container is full, spawn it back
+                                    GenPlace.TryPlaceThing(product, parent.Position, parent.Map, ThingPlaceMode.Near);
+                                    Log.Warning($"[YAMP] Container full, dropped {product.Label} on ground");
+                                }
+                                else
+                                {
+                                    Log.Message($"[YAMP] Collected product: {product.Label}");
+                                }
+                            }
+                        }
+                    }
+                }
+            };
+
+            // Perform the operation
+            var result = handler.Perform(context);
+
+            // ALWAYS delete the bill to prevent infinite retries
+            patient.BillStack.Delete(bill);
+
+            if (result.Success)
+            {
                 Messages.Message($"Operation {recipe.label} on {patient.LabelShort} completed successfully.", parent,
                     MessageTypeDefOf.PositiveEvent);
-
-                // Complete the bill
-                patient.BillStack.Delete(bill);
             }
             else
             {
-                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} failed.", parent,
+                Messages.Message($"Operation {recipe.label} on {patient.LabelShort} failed: {result.FailureReason}",
+                    parent,
                     MessageTypeDefOf.NegativeEvent);
-                patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 10, 0, -1, null, null));
-                // Keep bill on failure so they can try again
-            }
 
-            // Destroy consumed ingredients
-            foreach (Thing t in ingredients)
-            {
-                t.Destroy();
+                // Light injury on failure
+                patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 5, 0, -1, null, null));
             }
 
             // Eject patient if dead

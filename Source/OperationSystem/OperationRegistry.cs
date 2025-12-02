@@ -1,0 +1,73 @@
+using System;
+using System.Collections.Generic;
+using RimWorld;
+using Verse;
+
+namespace YAMP.OperationSystem
+{
+    /// <summary>
+    /// Central registry mapping vanilla recipe workers to custom operation implementations
+    /// </summary>
+    [StaticConstructorOnStartup]
+    public static class OperationRegistry
+    {
+        private static Dictionary<Type, IOperation> _handlers = new Dictionary<Type, IOperation>();
+
+        static OperationRegistry()
+        {
+            RegisterDefaults();
+            Log.Message("[YAMP] Operation registry initialized");
+        }
+
+        private static void RegisterDefaults()
+        {
+            // ===== INSTALL OPERATIONS =====
+            Register(typeof(Recipe_InstallArtificialBodyPart), new InstallArtificialPartOperation());
+            Register(typeof(Recipe_InstallNaturalBodyPart), new InstallNaturalPartOperation());
+            Register(typeof(Recipe_InstallImplant), new InstallImplantOperation());
+            Register(typeof(Recipe_ImplantIUD), new InstallIUDOperation());
+
+            // ===== REMOVE OPERATIONS =====
+            Register(typeof(Recipe_RemoveBodyPart), new RemoveBodyPartOperation());
+            Register(typeof(Recipe_RemoveBodyPart_Cut), new RemoveBodyPartCutOperation());
+            Register(typeof(Recipe_RemoveBodyPart_CutMany), new RemoveBodyPartCutManyOperation());
+            Register(typeof(Recipe_RemoveHediff), new RemoveHediffOperation());
+            Register(typeof(Recipe_RemoveImplant), new RemoveImplantOperation());
+
+            // ===== EXTRACT OPERATIONS =====
+            Register(typeof(Recipe_ExtractHemogen), new ExtractHemogenOperation());
+            Register(typeof(Recipe_ExtractOvum), new ExtractOvumOperation());
+
+            // ===== EXECUTE OPERATIONS =====
+            Register(typeof(Recipe_ExecuteByCut), new ExecuteByCutOperation());
+
+            // ===== ADMINISTER OPERATIONS =====
+            Register(typeof(Recipe_AdministerIngestible), new AdministerIngestibleOperation());
+            Register(typeof(Recipe_AdministerUsableItem), new AdministerUsableItemOperation());
+            Register(typeof(Recipe_BloodTransfusion), new BloodTransfusionOperation());
+            Register(typeof(Recipe_ImplantEmbryo), new ImplantEmbryoOperation());
+        }
+
+        public static void Register(Type recipeWorkerType, IOperation handler)
+        {
+            _handlers[recipeWorkerType] = handler;
+            Log.Message($"[YAMP] Registered handler for: {recipeWorkerType.Name}");
+        }
+
+        public static IOperation GetHandler(Type recipeWorkerType)
+        {
+            // Exact match
+            if (_handlers.TryGetValue(recipeWorkerType, out var handler))
+                return handler;
+
+            // Base class match
+            foreach (var kvp in _handlers)
+            {
+                if (recipeWorkerType.IsSubclassOf(kvp.Key))
+                    return kvp.Value;
+            }
+
+            return null; // Use vanilla if no handler
+        }
+    }
+}
