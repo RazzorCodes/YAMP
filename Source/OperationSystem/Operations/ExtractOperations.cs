@@ -11,6 +11,8 @@ namespace YAMP.OperationSystem
     public class ExtractHemogenOperation : BaseOperation, IExtract
     {
         public override string Name => "Extract Hemogen";
+        public float hemogenLossAmount = 0.45f;
+
 
         public bool CanExtract(Pawn patient)
         {
@@ -31,9 +33,14 @@ namespace YAMP.OperationSystem
 
             if (context.Facility != null)
             {
-                GenPlace.TryPlaceThing(hemogenPack, context.Facility.Position, context.Facility.Map,
+                GenPlace.TryPlaceThing(
+                    hemogenPack,
+                    context.Facility.Position,
+                    context.Facility.Map,
                     ThingPlaceMode.Near);
             }
+
+            context.Patient.health.AddHediff(HediffDefOf.BloodLoss).Severity = hemogenLossAmount;
 
             Log.Message($"[YAMP] Successfully extracted hemogen from {context.Patient.LabelShort}");
         }
@@ -41,8 +48,8 @@ namespace YAMP.OperationSystem
         protected override void HandleFailure(OperationContext context, OperationResult result)
         {
             result.FailureReason = "Hemogen extraction failed";
-            // Light blood loss on failure
-            context.Patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 5, 0, -1, null, null));
+            // Light damage on failure
+            context.Patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 1, 0, -1, null, null));
         }
     }
 

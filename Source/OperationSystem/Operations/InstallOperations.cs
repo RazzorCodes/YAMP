@@ -7,7 +7,7 @@ namespace YAMP.OperationSystem
     // ==================== INSTALL OPERATIONS ====================
 
     /// <summary>
-    /// Install artificial body part (bionics)
+    /// Install artificial body part (bionics) - adds hediff from recipe
     /// </summary>
     public class InstallArtificialPartOperation : BaseOperation, ISurgery
     {
@@ -20,20 +20,24 @@ namespace YAMP.OperationSystem
 
         public float GetBaseSuccessChance(Pawn patient, BodyPartRecord part)
         {
-            // Use vanilla's surgery success calculation
-            return 1f; // Vanilla Recipe_InstallArtificialBodyPart uses default surgery chance
+            return 1f; // Uses recipe's surgerySuccessChanceFactor
         }
 
         protected override void ExecuteOperation(OperationContext context, OperationResult result)
         {
-            // The actual installation is handled by vanilla's ApplyOnPawn
-            // We just need to mark success
-            Log.Message($"[YAMP] Successfully installed artificial part on {context.Patient.LabelShort}");
+            // Get the hediff to add from the recipe
+            var hediffDef = context.Bill?.recipe?.addsHediff;
+            if (hediffDef != null)
+            {
+                var hediff = context.Patient.health.AddHediff(hediffDef, context.BodyPart);
+                result.AppliedHediffs.Add(hediff);
+                Log.Message($"[YAMP] Installed {hediffDef.label} on {context.Patient.LabelShort}");
+            }
         }
     }
 
     /// <summary>
-    /// Install natural body part (organs)
+    /// Install natural body part (organs) - adds hediff from recipe
     /// </summary>
     public class InstallNaturalPartOperation : BaseOperation, ISurgery
     {
@@ -46,17 +50,32 @@ namespace YAMP.OperationSystem
 
         public float GetBaseSuccessChance(Pawn patient, BodyPartRecord part)
         {
-            return 1f; // Uses vanilla surgery success
+            return 1f;
         }
 
         protected override void ExecuteOperation(OperationContext context, OperationResult result)
         {
-            Log.Message($"[YAMP] Successfully installed natural part on {context.Patient.LabelShort}");
+            var hediffDef = context.Bill?.recipe?.addsHediff;
+            if (hediffDef != null)
+            {
+                // First remove MissingBodyPart if present
+                var missingPartHediff = context.Patient.health.hediffSet.hediffs
+                    .FirstOrDefault(h => h.def == HediffDefOf.MissingBodyPart && h.Part == context.BodyPart);
+                if (missingPartHediff != null)
+                {
+                    context.Patient.health.RemoveHediff(missingPartHediff);
+                }
+
+                // Add the new natural part
+                var hediff = context.Patient.health.AddHediff(hediffDef, context.BodyPart);
+                result.AppliedHediffs.Add(hediff);
+                Log.Message($"[YAMP] Installed {hediffDef.label} on {context.Patient.LabelShort}");
+            }
         }
     }
 
     /// <summary>
-    /// Install implant
+    /// Install implant - adds hediff from recipe
     /// </summary>
     public class InstallImplantOperation : BaseOperation, ISurgery
     {
@@ -74,12 +93,18 @@ namespace YAMP.OperationSystem
 
         protected override void ExecuteOperation(OperationContext context, OperationResult result)
         {
-            Log.Message($"[YAMP] Successfully installed implant on {context.Patient.LabelShort}");
+            var hediffDef = context.Bill?.recipe?.addsHediff;
+            if (hediffDef != null)
+            {
+                var hediff = context.Patient.health.AddHediff(hediffDef, context.BodyPart);
+                result.AppliedHediffs.Add(hediff);
+                Log.Message($"[YAMP] Installed {hediffDef.label} on {context.Patient.LabelShort}");
+            }
         }
     }
 
     /// <summary>
-    /// Install IUD
+    /// Install IUD - adds hediff from recipe
     /// </summary>
     public class InstallIUDOperation : BaseOperation, ISurgery
     {
@@ -97,7 +122,13 @@ namespace YAMP.OperationSystem
 
         protected override void ExecuteOperation(OperationContext context, OperationResult result)
         {
-            Log.Message($"[YAMP] Successfully installed IUD on {context.Patient.LabelShort}");
+            var hediffDef = context.Bill?.recipe?.addsHediff;
+            if (hediffDef != null)
+            {
+                var hediff = context.Patient.health.AddHediff(hediffDef);
+                result.AppliedHediffs.Add(hediff);
+                Log.Message($"[YAMP] Installed IUD on {context.Patient.LabelShort}");
+            }
         }
     }
 }

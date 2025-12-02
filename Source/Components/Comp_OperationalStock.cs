@@ -34,7 +34,7 @@ namespace YAMP
                 return fuelValueGlitter;
             }
 
-            Logger.Log("Warning", $"YAMP: Unknown medicine type: {def.defName}");
+            Logger.Log("Info", $"YAMP: Did not parse as medicine: {def.defName}");
             return -1f;
         }
     }

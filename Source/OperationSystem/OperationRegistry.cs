@@ -31,8 +31,8 @@ namespace YAMP.OperationSystem
             Register(typeof(Recipe_RemoveBodyPart), new RemoveBodyPartOperation());
             Register(typeof(Recipe_RemoveBodyPart_Cut), new RemoveBodyPartCutOperation());
             Register(typeof(Recipe_RemoveBodyPart_CutMany), new RemoveBodyPartCutManyOperation());
-            Register(typeof(Recipe_RemoveHediff), new RemoveHediffOperation());
             Register(typeof(Recipe_RemoveImplant), new RemoveImplantOperation());
+            Register(typeof(Recipe_TerminatePregnancy), new TerminatePregnancyOperation());
 
             // ===== EXTRACT OPERATIONS =====
             Register(typeof(Recipe_ExtractHemogen), new ExtractHemogenOperation());
@@ -46,6 +46,7 @@ namespace YAMP.OperationSystem
             Register(typeof(Recipe_AdministerUsableItem), new AdministerUsableItemOperation());
             Register(typeof(Recipe_BloodTransfusion), new BloodTransfusionOperation());
             Register(typeof(Recipe_ImplantEmbryo), new ImplantEmbryoOperation());
+            Register(typeof(Recipe_Surgery), new AnesthetizeOperation());
         }
 
         public static void Register(Type recipeWorkerType, IOperation handler)
@@ -60,11 +61,13 @@ namespace YAMP.OperationSystem
             if (_handlers.TryGetValue(recipeWorkerType, out var handler))
                 return handler;
 
-            // Base class match
-            foreach (var kvp in _handlers)
+            // Base class match - walk up the hierarchy to find the most specific handler
+            Type currentType = recipeWorkerType.BaseType;
+            while (currentType != null && currentType != typeof(object))
             {
-                if (recipeWorkerType.IsSubclassOf(kvp.Key))
-                    return kvp.Value;
+                if (_handlers.TryGetValue(currentType, out handler))
+                    return handler;
+                currentType = currentType.BaseType;
             }
 
             return null; // Use vanilla if no handler

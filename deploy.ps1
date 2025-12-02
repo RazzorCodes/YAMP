@@ -25,21 +25,20 @@ try {
         $src = "$sourceDir\$folder"
         $dst = "$destDir\$folder"
     
-        try
-        {
-        if (Test-Path $src) {
-            Write-Host "Copying $folder..." -NoNewline
-            Copy-Item -Path $src -Destination $destDir -Recurse -Force
-            Write-Host " [OK]" -ForegroundColor Green
+        try {
+            if (Test-Path $src) {
+                Write-Host "Copying $folder..." -NoNewline
+                Copy-Item -Path $src -Destination $destDir -Recurse -Force
+                Write-Host " [OK]" -ForegroundColor Green
+            }
+            else {
+                Write-Host " [MISSING]" -ForegroundColor Yellow
+            }
         }
-        else {
-            Write-Host " [MISSING]" -ForegroundColor Yellow
+        catch {
+            Write-Host "[ERROR]" -ForegroundColor Red
+            THROW $_.Exception.Message
         }
-    }
-    catch {
-        Write-Error "[ERROR]" -ForegroundColor Red
-        THROW $_.Exception.Message
-    }
     }
 
     Write-Host "Deployment complete!"

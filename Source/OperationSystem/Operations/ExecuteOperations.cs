@@ -31,4 +31,28 @@ namespace YAMP.OperationSystem
             context.Patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 50, 5f, -1, null, null));
         }
     }
+
+    /// <summary>
+    /// Terminate pregnancy - removes pregnancy hediff
+    /// </summary>
+    public class TerminatePregnancyOperation : BaseOperation, IExecute
+    {
+        public override string Name => "Terminate Pregnancy";
+
+        public bool CanExecute(Pawn patient)
+        {
+            return patient.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.PregnantHuman) != null;
+        }
+
+        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        {
+            // Remove pregnancy hediff
+            var pregnancyHediff = context.Patient.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.PregnantHuman);
+            if (pregnancyHediff != null)
+            {
+                context.Patient.health.RemoveHediff(pregnancyHediff);
+                Log.Message($"[YAMP] Terminated pregnancy for {context.Patient.LabelShort}");
+            }
+        }
+    }
 }

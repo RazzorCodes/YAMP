@@ -11,6 +11,7 @@ namespace YAMP.OperationSystem
     {
         public Pawn Patient { get; set; }
         public BodyPartRecord BodyPart { get; set; }
+        public RimWorld.Bill_Medical Bill { get; set; }
         public List<Thing> Ingredients { get; set; }
         public ThingWithComps Facility { get; set; }
         public Pawn Surgeon { get; set; }
