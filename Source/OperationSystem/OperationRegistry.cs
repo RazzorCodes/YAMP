@@ -28,11 +28,10 @@ namespace YAMP.OperationSystem
             Register(typeof(Recipe_ImplantIUD), new InstallIUDOperation());
 
             // ===== REMOVE OPERATIONS =====
-            Register(typeof(Recipe_RemoveBodyPart), new RemoveBodyPartOperation());
-            Register(typeof(Recipe_RemoveBodyPart_Cut), new RemoveBodyPartCutOperation());
-            Register(typeof(Recipe_RemoveBodyPart_CutMany), new RemoveBodyPartCutManyOperation());
-            Register(typeof(Recipe_RemoveImplant), new RemoveImplantOperation());
-            Register(typeof(Recipe_TerminatePregnancy), new TerminatePregnancyOperation());
+            Register(typeof(Recipe_RemoveBodyPart), new RemovePartOperation());
+            Register(typeof(Recipe_RemoveBodyPart_Cut), new RemovePartOperation());
+            Register(typeof(Recipe_RemoveBodyPart_CutMany), new RemovePartOperation());
+            Register(typeof(Recipe_RemoveImplant), new RemovePartOperation());
 
             // ===== EXTRACT OPERATIONS =====
             Register(typeof(Recipe_ExtractHemogen), new ExtractHemogenOperation());
@@ -40,6 +39,7 @@ namespace YAMP.OperationSystem
 
             // ===== EXECUTE OPERATIONS =====
             Register(typeof(Recipe_ExecuteByCut), new ExecuteByCutOperation());
+            Register(typeof(Recipe_TerminatePregnancy), new TerminatePregnancyOperation());
 
             // ===== ADMINISTER OPERATIONS =====
             Register(typeof(Recipe_AdministerIngestible), new AdministerIngestibleOperation());

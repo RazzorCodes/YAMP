@@ -119,7 +119,8 @@ namespace YAMP
             }
 
             // Check if we have ingredients (EXCLUDING medicine - that comes from fuel)
-            if (!CheckParts(bill))
+            var parts = ReserveParts(bill);
+            if (parts == null)
             {
                 // Log what we're missing for debugging
                 Logger.Log("[Operate]", $"YAMP: Missing ingredients for {bill.recipe.label}");
@@ -136,7 +137,7 @@ namespace YAMP
 
             // Perform Operation
             Log.Message($"YAMP: Performing operation {bill.recipe.label} on {patient.LabelShort}");
-            PerformOperation(patient, bill, stockCost);
+            PerformOperation(patient, bill, stockCost, parts);
         }
 
         private float CalculateStockCost(Bill_Medical bill)
@@ -153,7 +154,7 @@ namespace YAMP
             return stockCost;
         }
 
-        private void PerformOperation(Pawn patient, Bill_Medical bill, float stockCost)
+        private void PerformOperation(Pawn patient, Bill_Medical bill, float stockCost, List<Thing> parts)
         {
             RecipeDef recipe = bill.recipe;
 
@@ -161,13 +162,6 @@ namespace YAMP
             if (OperationalStock.Stock < stockCost)
             {
                 Log.Warning($"YAMP: Not enough stock ({OperationalStock.Stock}/{stockCost}) for {recipe.label}");
-                return;
-            }
-
-            // Check ingredients availability
-            if (!CheckParts(bill))
-            {
-                Log.Warning($"YAMP: Missing ingredients for {bill.recipe.label}");
                 return;
             }
 
@@ -186,7 +180,7 @@ namespace YAMP
             {
                 Patient = patient,
                 BodyPart = bill.Part,
-                Ingredients = new List<Thing>(), // Virtual ingredients - not used
+                Ingredients = parts,
                 Facility = parent,
                 Surgeon = null, // Automated surgery
                 SuccessChance = Props.surgerySuccessChance,
@@ -326,16 +320,19 @@ namespace YAMP
         public override void PostDraw()
         {
             base.PostDraw();
+
             Pawn patient = PodConatiner.GetPawn();
-            if (patient != null)
+            if (patient == null)
             {
-                Vector3 drawPos = parent.DrawPos;
-                drawPos.y += 0.04f;
-                float angle = (Time.realtimeSinceStartup * 50f) % 360f;
-                Matrix4x4 matrix = default(Matrix4x4);
-                matrix.SetTRS(drawPos, Quaternion.AngleAxis(angle, Vector3.up), new Vector3(2f, 1f, 2f));
-                Graphics.DrawMesh(MeshPool.plane10, matrix, YAMP_Assets.ActiveOverlayMat, 0);
+                return;
             }
+
+            Vector3 drawPos = parent.DrawPos;
+            drawPos.y += 0.04f;
+            float angle = (Time.realtimeSinceStartup * 50f) % 360f;
+            Matrix4x4 matrix = default(Matrix4x4);
+            matrix.SetTRS(drawPos, Quaternion.AngleAxis(angle, Vector3.up), new Vector3(2f, 1f, 2f));
+            Graphics.DrawMesh(MeshPool.plane10, matrix, YAMP_Assets.ActiveOverlayMat, 0);
         }
     }
 }

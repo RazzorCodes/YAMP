@@ -73,7 +73,8 @@ namespace YAMP.OperationSystem
         protected override void ExecuteOperation(OperationContext context, OperationResult result)
         {
             // Ovum extraction creates ovum as product - using HumanOvum ThingDef
-            var ovum = ThingMaker.MakeThing(ThingDef.Named("HumanOvum"));
+            var ovum = ThingMaker.MakeThing(ThingDefOf.HumanOvum) as HumanOvum;
+            ovum.TryGetComp<CompHasPawnSources>().AddSource(context.Patient);
             result.Products.Add(ovum);
 
             if (context.Facility != null)

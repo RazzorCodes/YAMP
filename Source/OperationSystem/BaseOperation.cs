@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using RimWorld;
 using Verse;
 
@@ -22,7 +23,7 @@ namespace YAMP.OperationSystem
 
                 // Calculate success chance
                 float successChance = context.SuccessChanceCalculator?.Invoke(context)
-                    ?? context.SuccessChance;
+                                      ?? context.SuccessChance;
 
                 result.Success = Rand.Value <= successChance;
 
@@ -63,7 +64,39 @@ namespace YAMP.OperationSystem
         {
             result.FailureReason = $"{Name} failed due to complications";
             // Light injury on failure
-            context.Patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 3, 0, -1, null, context.BodyPart));
+            context.Patient.TakeDamage(new DamageInfo(DamageDefOf.Blunt, 1, 0, -1, null, context.BodyPart));
+        }
+
+        protected virtual System.Collections.Generic.List<Thing> GenerateProducts(Pawn patient, BodyPartRecord part)
+        {
+            var products = new System.Collections.Generic.List<Thing>();
+
+            // Installed bionics/implants
+            bool hasAddedPart = false;
+            foreach (Hediff hediff in patient.health.hediffSet.hediffs.Where(h => h.Part == part))
+            {
+                if (hediff.def.countsAsAddedPartOrImplant)
+                {
+                    hasAddedPart = true;
+                }
+
+                if (hediff.def.spawnThingOnRemoved != null)
+                {
+                    var product = ThingMaker.MakeThing(hediff.def.spawnThingOnRemoved);
+                    products.Add(product);
+                }
+            }
+
+            // Natural body part - only spawn if not missing and not replaced by an added part
+            if (part.def.spawnThingOnRemoved != null &&
+                !patient.health.hediffSet.PartIsMissing(part) &&
+                !hasAddedPart)
+            {
+                var product = ThingMaker.MakeThing(part.def.spawnThingOnRemoved);
+                products.Add(product);
+            }
+
+            return products;
         }
     }
 }

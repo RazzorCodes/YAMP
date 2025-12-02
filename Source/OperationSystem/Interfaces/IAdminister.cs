@@ -7,14 +7,5 @@ namespace YAMP.OperationSystem
     /// </summary>
     public interface IAdminister : IOperation
     {
-        /// <summary>
-        /// The drug or item definition to administer
-        /// </summary>
-        ThingDef ItemDef { get; }
-
-        /// <summary>
-        /// Number of items required
-        /// </summary>
-        int RequiredCount { get; }
     }
 }

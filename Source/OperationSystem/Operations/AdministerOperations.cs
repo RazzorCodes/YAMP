@@ -4,28 +4,28 @@ using Verse;
 
 namespace YAMP.OperationSystem
 {
-    // ==================== ADMINISTER OPERATIONS ====================
-
     /// <summary>
     /// Administer ingestible items (drugs, anesthesia, etc.) - applies recipe effects
     /// </summary>
     public class AdministerIngestibleOperation : BaseOperation, IAdminister
     {
         public override string Name => "Administer Ingestible";
-        public ThingDef ItemDef => null; // Determined from ingredients
-        public int RequiredCount => 1;
 
         protected override void ExecuteOperation(OperationContext context, OperationResult result)
         {
-            // Get the item being administered
             var item = context.Ingredients?.FirstOrDefault();
-            if (item?.def?.ingestible != null)
+            if (item?.def?.ingestible?.outcomeDoers != null)
             {
                 // Apply ingestible effects
                 item.def.ingestible.outcomeDoers?.ForEach(doer =>
                     doer.DoIngestionOutcome(context.Patient, item, 1));
 
                 Log.Message($"[YAMP] Administered {item.Label} to {context.Patient.LabelShort}");
+            }
+            else
+            {
+                result.FailureReason = "Item is not ingestible";
+                Logger.Log("[YAMP] AdministerIngestibleOperation: ", $"Item {item?.Label} is not ingestible");
             }
         }
 
