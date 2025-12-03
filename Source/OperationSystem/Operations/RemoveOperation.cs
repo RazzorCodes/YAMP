@@ -49,8 +49,8 @@ namespace YAMP.OperationSystem
                 }
             }
 
-            Log.Message(
-                $"[YAMP] Successfully removed {context.BodyPart.Label} from {context.Patient.LabelShort}"
+            Logger.Debug(
+                $"Successfully removed {context.BodyPart.Label} from {context.Patient.LabelShort}"
             );
         }
     }

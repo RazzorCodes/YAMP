@@ -26,9 +26,6 @@ namespace YAMP
             }
         }
 
-        // Track the last patient to detect changes
-        private Pawn _lastPatient;
-
         public bool CanOpen => Container.GetPawn() != null;
 
         public int OpenTicks => 10;

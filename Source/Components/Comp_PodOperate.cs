@@ -32,8 +32,7 @@ namespace YAMP
 
         private int currentTick = 0;
         private bool isOperating = false;
-        private Bill_Medical currentBill = null;
-        private List<Thing> currentParts = null;
+        private Bill_Medical _currentBill = null;
 
         private ActivityOperate _currentActivity = null;
 
@@ -44,16 +43,45 @@ namespace YAMP
             Scribe_Values.Look(ref isOperating, "isOperating", false);
         }
 
-        public override void CompTickRare()
+        public override void CompTick()
         {
+            base.CompTick();
             if (_currentActivity == null)
             {
-                return;
+                Logger.Debug("_currentActivity is null");
+                _currentBill ??= GetSurgeryBill();
+                if (_currentBill == null)
+                {
+                    Logger.Debug("No surgery bill found");
+                    return;
+                }
+                _currentActivity = new ActivityOperate((Building_MedPod)parent, _currentBill);
+                _currentActivity.Start(); // Start the activity to set work amount
+                Logger.Debug($"Received new surgery: {_currentActivity.Name}");
             }
 
             if (_currentActivity.IsFinished)
             {
+                Logger.Debug("Activity finished, executing operation");
+
+                // Execute the operation before cleaning up
+                var activityToExecute = _currentActivity as ActivityOperate;
+                activityToExecute?.Execute();
+
                 _currentActivity = null;
+
+                // Safely remove the bill
+                if (_currentBill != null)
+                {
+                    var medPod = (Building_MedPod)parent;
+                    var billStack = medPod.BillStack;
+                    if (billStack != null && billStack.Bills.Contains(_currentBill))
+                    {
+                        billStack.Delete(_currentBill);
+                        Logger.Debug($"Removed bill: {_currentBill.Label}");
+                    }
+                    _currentBill = null;
+                }
                 return;
             }
 
@@ -102,25 +130,26 @@ namespace YAMP
             );
         }
 
-        private Bill_Medical GetSurgeryBill(Pawn patient)
+        private Bill_Medical GetSurgeryBill()
         {
             var medPod = parent as Building_MedPod;
             if (medPod?.BillStack == null)
             {
+                Logger.Debug("MedPod BillStack is null");
                 return null;
             }
 
-            Bill_Medical bill = null;
             foreach (Bill b in medPod.BillStack)
             {
                 if (b is Bill_Medical bm && bm.ShouldDoNow())
                 {
-                    bill = bm;
+                    Logger.Debug($"Found surgery bill: {bm.Label}");
                     return bm;
                 }
             }
+            Logger.Debug("No surgery bill found");
 
-            return bill;
+            return null;
         }
 
         public override void PostDraw()
@@ -133,7 +162,7 @@ namespace YAMP
                 return;
             }
 
-            if (isOperating)
+            if (_currentActivity?.InProgress == true)
             {
                 Vector3 barPos = parent.DrawPos;
                 barPos.y = AltitudeLayer.MetaOverlays.AltitudeFor();
@@ -143,7 +172,7 @@ namespace YAMP
                 {
                     center = barPos,
                     size = new Vector2(0.8f, 0.14f),
-                    fillPercent = (float)currentTick / (currentBill.recipe.workAmount / 2f),
+                    fillPercent = (float)currentTick / (_currentBill.recipe.workAmount / 2f),
                     filledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.9f, 0.85f, 0.2f)),
                     unfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.3f, 0.3f, 0.3f)),
                     margin = 0.15f,
@@ -166,23 +195,26 @@ namespace YAMP
         public override string CompInspectStringExtra()
         {
             // Pawn info: todo: move to building
-            System.Text.StringBuilder sb = new System.Text.StringBuilder();
+            var sb = new System.Text.StringBuilder();
 
-            Pawn patient = PodConatiner.GetPawn();
-            if (patient != null)
+            sb.AppendLine($"Patient: {PodConatiner.GetPawn()?.Name?.ToStringShort}");
+            if (PodConatiner.GetPawn() != null)
             {
-                if (isOperating && currentBill != null)
+                if (_currentActivity != null)
                 {
-                    return $"Operating: {currentBill.recipe.label} ({(float)currentTick / (currentBill.recipe.workAmount / 2f):P0})";
+                    if (_currentActivity.InProgress)
+                    {
+                        sb.AppendLine($"Operating: {_currentActivity.Name} ({_currentActivity.ProgressPercentage:P0})");
+                    }
+                    else
+                    {
+                        sb.AppendLine($"Pending Operation: {_currentActivity.Name}");
+                    }
                 }
-
-                Bill_Medical bill = GetSurgeryBill(patient);
-                if (bill != null)
+                else
                 {
-                    return $"Pending Operation: {bill.recipe.label}";
+                    sb.AppendLine("No pending operations");
                 }
-
-                return "No pending operations";
             }
 
             // Stock: todo move to building
@@ -208,6 +240,25 @@ namespace YAMP
             else
             {
                 sb.AppendLine("Stock Items: None");
+            }
+
+            var otherItemsInContainer = PodConatiner.Get()
+                .Where(thing => !thing.def.IsMedicine && thing.GetType() != typeof(Pawn))
+                .GroupBy(thing => thing.def)
+                .Select(group => new { Def = group.Key, Count = group.Sum(thing => thing.stackCount) })
+                .OrderBy(item => item.Def.label);
+
+            if (otherItemsInContainer.Any())
+            {
+                sb.AppendLine("Other Items:");
+                foreach (var item in otherItemsInContainer)
+                {
+                    sb.AppendLine($"  - {item.Def.LabelCap}: {item.Count}");
+                }
+            }
+            else
+            {
+                sb.AppendLine("Other Items: None");
             }
 
             return sb.ToString().TrimEnd();

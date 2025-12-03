@@ -17,7 +17,7 @@ namespace YAMP.Activities
         public float Progress { get; protected set; }
         public float TotalTicks { get; protected set; }
         public float ProgressPercentage => Progress / TotalTicks;
-        public bool InProgress => Progress < TotalTicks;
+        public bool InProgress => !force_stopped && Progress < TotalTicks;
         public virtual string Name { get; protected set; }
 
         public bool IsFinished => force_stopped || ProgressPercentage >= 1f;
@@ -28,7 +28,7 @@ namespace YAMP.Activities
             float tickDelta = currentTick - _lastTick;
             _lastTick = currentTick;
 
-            Progress += tickDelta / TotalTicks;
+            Progress += tickDelta;
 
             Logger.Debug($"Activity \"{Name}\" progress: {ProgressPercentage * 100}% of {TotalTicks} ticks");
 

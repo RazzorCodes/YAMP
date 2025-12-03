@@ -37,7 +37,7 @@ namespace YAMP.Activities
             _bill = bill;
         }
 
-        protected void Execute(List<Thing> parts, float stockCost)
+        public void Execute()
         {
             var handler =
                 OperationRegistry.GetHandler(
@@ -46,7 +46,7 @@ namespace YAMP.Activities
             if (handler == null)
             {
                 Logger.Debug($"Activity {Name} missing handler for {_bill.recipe.Worker.GetType()}");
-                ReturnParts(_facility.Container, parts, _bill);
+                ReturnParts(_facility.Container, _parts, _bill);
                 End();
                 return;
             }
@@ -56,7 +56,7 @@ namespace YAMP.Activities
                 Patient = _facility.Container.GetPawn(),
                 Bill = _bill,
                 BodyPart = _bill.Part,
-                Ingredients = parts,
+                Ingredients = _parts,
                 Facility = _facility,
                 Surgeon = null, // Automated surgery
                 SuccessChance = 1f, // todo: use vanilla success chance
@@ -92,33 +92,36 @@ namespace YAMP.Activities
                 // Add any products to the pod container
                 foreach (var product in result.Products)
                 {
+                    // Despawn first if spawned to remove from map/container
                     if (product.Spawned)
                     {
-                        if (!_facility.Container.GetDirectlyHeldThings().TryAdd(product))
-                        {
-                            // If container is full, spawn it back
-                            GenPlace.TryPlaceThing(
-                                product,
-                                _bill.GiverPawn.Position,
-                                _bill.GiverPawn.Map,
-                                ThingPlaceMode.Near
-                            );
-                            Logger.Debug(
-                                $"[YAMP] Container full or not available, dropped {product.Label} on ground"
-                            );
-                        }
-                        else
-                        {
-                            Logger.Trace($"Collected product: {product.Label}");
-                        }
                         product.DeSpawn();
+                    }
+
+                    // Now try to add to container
+                    if (!_facility.Container.GetDirectlyHeldThings().TryAdd(product))
+                    {
+                        // If container is full, spawn it near the facility
+                        GenPlace.TryPlaceThing(
+                            product,
+                            _facility.Position,
+                            _facility.Map,
+                            ThingPlaceMode.Near
+                        );
+                        Logger.Debug(
+                            $"[YAMP] Container full or not available, dropped {product.Label} on ground"
+                        );
+                    }
+                    else
+                    {
+                        Logger.Trace($"Collected product: {product.Label}");
                     }
                 }
             }
         }
         public override void Start()
         {
-            base.Start(_bill.GetWorkAmount());
+            base.Start(_bill.GetWorkAmount() > 100 ? _bill.GetWorkAmount() : 100);
 
             _parts = ReserveParts(_facility.Container, _bill);
             if (_parts == null)
@@ -176,7 +179,6 @@ namespace YAMP.Activities
         public override void End()
         {
             base.End();
-            Execute(_parts, _stockCost);
         }
 
         void ReturnParts(PodContainer container, List<Thing> parts, Bill_Medical fallback)

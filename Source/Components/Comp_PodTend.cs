@@ -44,6 +44,7 @@ namespace YAMP
 
         public override void CompTick()
         {
+            base.CompTick();
             if (PodConatiner.GetPawn() == null)
             {
                 if (isTending)
@@ -69,7 +70,7 @@ namespace YAMP
 
         private void TryStartTend()
         {
-            Pawn patient = PodConatiner.Get().OfType<Pawn>().FirstOrDefault();
+            Pawn patient = PodConatiner.GetPawn();
             if (patient == null)
             {
                 return;

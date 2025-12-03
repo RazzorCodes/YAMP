@@ -57,11 +57,17 @@ namespace YAMP
 
         public void ComputeStock()
         {
-            _container.Get().Aggregate(
-                    _unusedStock,
+            _unusedStock = _container.Get()
+            .Where(t => t.def.IsMedicine)
+            .Aggregate(
+                    0f,
                     (acc, thing) =>
                     {
-                        acc += _props.GetFuelValue(thing.def, thing.stackCount);
+                        float value = _props.GetFuelValue(thing.def, thing.stackCount);
+                        if (value > 0)
+                        {
+                            acc += value;
+                        }
                         return acc;
                     });
         }

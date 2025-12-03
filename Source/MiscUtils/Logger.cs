@@ -7,8 +7,8 @@ public static class Logger
 {
     public enum LogLevel
     {
-        Trace = 0,
-        Debug = 1,
+        Debug = 0,
+        Trace = 1,
         Info = 2,
         Warning = 3,
         Error = 4,
@@ -17,7 +17,7 @@ public static class Logger
     }
 
     public static bool Enabled { get; set; } = true;
-    public static LogLevel Level { get; set; } = LogLevel.Trace;
+    public static LogLevel Level { get; set; } = LogLevel.Debug;
 
     private static void InternalLog(LogLevel severity, string message)
     {
