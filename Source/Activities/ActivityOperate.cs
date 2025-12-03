@@ -79,7 +79,7 @@ namespace YAMP.Activities
 
         private void PreOperationAction(OperationContext ctx)
         {
-            if (!_facility.OperationalStock.TryConsumeStock(_stockCost))
+            if (!_facility.Stock.TryConsumeStock(_stockCost))
             {
                 Logger.Debug($"Failed to consume stock during pre-op");
             }
@@ -132,9 +132,9 @@ namespace YAMP.Activities
             }
 
             _stockCost = OperationalStock.CalculateStockCost(_bill.recipe);
-            if (_stockCost > _facility.OperationalStock.TotalStock)
+            if (_stockCost > _facility.Stock.TotalStock)
             {
-                Logger.Debug($"Activity {Name} missing stock for {_bill.recipe.label}. Needed {_stockCost}, have {_facility.OperationalStock.TotalStock}");
+                Logger.Debug($"Activity {Name} missing stock for {_bill.recipe.label}. Needed {_stockCost}, have {_facility.Stock.TotalStock}");
                 End();
                 return;
             }

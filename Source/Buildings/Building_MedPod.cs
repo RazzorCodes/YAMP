@@ -5,31 +5,18 @@ using Verse;
 
 namespace YAMP
 {
-    public class Building_MedPod : Building, IThingHolder, IOpenable, ISearchableContents
+    public partial class Building_MedPod : Building, IThingHolder, IOpenable
     {
+        List<IActivity> _activityList;
+        IActivity _currentActivity => _activityList.FirstOrFallback(null);
+
         private PodContainer _container;
-        public PodContainer Container { get { if (_container == null) _container = new PodContainer(this); return _container; } }
+        public PodContainer Container => _container ??= new PodContainer(this);
 
         private OperationalStock _operationalStock;
-        public OperationalStock OperationalStock =>
-            _operationalStock ??= new OperationalStock(
-                Container,
-                new CompProp_OperationalStock()
-            );
+        public OperationalStock Stock => _operationalStock ??= new OperationalStock(Container);
 
-        // BillStack for managing surgery bills - delegates to patient
-        public BillStack BillStack
-        {
-            get
-            {
-                return Container.GetPawn()?.health.surgeryBills;
-            }
-        }
-
-        public bool CanOpen => Container.GetPawn() != null;
-
-        public int OpenTicks => 10;
-        public ThingOwner SearchableContents => Container.GetDirectlyHeldThings();
+        public BillStack BillStack => Container.GetPawn()?.health.surgeryBills;
 
         public override void SpawnSetup(Map map, bool respawningAfterLoad)
         {
@@ -41,43 +28,12 @@ namespace YAMP
             base.ExposeData();
             Scribe_Deep.Look(ref _container, "container", this);
             Scribe_Deep.Look(ref _operationalStock, "operationalStock", this);
-        }
-
-        public override IEnumerable<Gizmo> GetGizmos()
-        {
-            foreach (Gizmo gizmo in base.GetGizmos())
-                yield return gizmo;
-
-            yield return this.EjectProducts();
-        }
-
-        private Gizmo EjectProducts()
-        {
-            return new Command_Action
-            {
-                defaultLabel = "Eject Products",
-                defaultDesc = "Eject the products from the pod.",
-                icon = TexCommand.ForbidOff,
-                action = () =>
-                {
-                    var products = Container.GetDirectlyHeldThings().Where(t => !(t is Pawn) && !t.def.IsMedicine).ToList();
-                    foreach (var product in products)
-                    {
-                        Container.GetDirectlyHeldThings().TryDrop(
-                                product,
-                                this.InteractionCell,
-                                this.Map,
-                                ThingPlaceMode.Near,
-                                out _
-                            );
-                    }
-                }
-            };
+            Scribe_Deep.Look(ref _activityList, "activityList", this);
         }
 
         public void GetChildHolders(List<IThingHolder> outChildren)
         {
-            ThingOwnerUtility.AppendThingHoldersFromThings(outChildren, (IList<Thing>)this.GetDirectlyHeldThings());
+            outChildren = null;
         }
 
         public ThingOwner GetDirectlyHeldThings()
@@ -85,19 +41,5 @@ namespace YAMP
             return Container.GetDirectlyHeldThings();
         }
 
-        public void Open()
-        {
-            var pawn = Container.GetPawn();
-            if (pawn != null)
-            {
-                Container.GetDirectlyHeldThings().TryDrop(
-                        pawn,
-                        this.InteractionCell,
-                        this.Map,
-                        ThingPlaceMode.Near,
-                        out _
-                    );
-            }
-        }
     }
 }

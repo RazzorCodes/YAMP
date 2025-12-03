@@ -25,13 +25,11 @@ namespace YAMP
 
         private OperationalStock _operationalStock;
         public OperationalStock OperationalStock =>
-            _operationalStock ??= ((Building_MedPod)parent).OperationalStock;
+            _operationalStock ??= ((Building_MedPod)parent).Stock;
         private PodContainer _podConatiner;
         private PodContainer PodConatiner =>
             _podConatiner ??= ((Building_MedPod)parent).Container;
 
-        private int currentTick = 0;
-        private bool isOperating = false;
         private Bill_Medical _currentBill = null;
 
         private ActivityOperate _currentActivity = null;
@@ -39,8 +37,6 @@ namespace YAMP
         public override void PostExposeData()
         {
             base.PostExposeData();
-            Scribe_Values.Look(ref currentTick, "currentTick", 0);
-            Scribe_Values.Look(ref isOperating, "isOperating", false);
         }
 
         public override void CompTick()
@@ -172,7 +168,7 @@ namespace YAMP
                 {
                     center = barPos,
                     size = new Vector2(0.8f, 0.14f),
-                    fillPercent = (float)currentTick / (_currentBill.recipe.workAmount / 2f),
+                    fillPercent = _currentActivity.ProgressPercentage,
                     filledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.9f, 0.85f, 0.2f)),
                     unfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.3f, 0.3f, 0.3f)),
                     margin = 0.15f,

@@ -8,7 +8,7 @@ using Verse;
 
 namespace YAMP
 {
-    public class CompProp_OperationalStock
+    public class OperationalStock
     {
         public float fuelValueHerbal = 10f;
         public float fuelValueIndustrial = 30f;
@@ -34,10 +34,6 @@ namespace YAMP
             Logger.Log("Info", $"YAMP: Did not parse as medicine: {def.defName}");
             return -1f;
         }
-    }
-
-    public class OperationalStock
-    {
         private PodContainer _container;
 
         private float _buffer = 0f;
@@ -47,12 +43,9 @@ namespace YAMP
         private float _unusedStock = 0f;
         public float UnusedStock => _unusedStock;
 
-        private CompProp_OperationalStock _props;
-
-        public OperationalStock(PodContainer container, CompProp_OperationalStock props)
+        public OperationalStock(PodContainer container)
         {
             _container = container;
-            _props = props;
         }
 
         public void ComputeStock()
@@ -63,7 +56,7 @@ namespace YAMP
                     0f,
                     (acc, thing) =>
                     {
-                        float value = _props.GetFuelValue(thing.def, thing.stackCount);
+                        float value = GetFuelValue(thing.def, thing.stackCount);
                         if (value > 0)
                         {
                             acc += value;
@@ -112,7 +105,7 @@ namespace YAMP
             var itemsToConsume = new List<Thing>();
             foreach (var candidate in candidates)
             {
-                float stackValue = _props.GetFuelValue(candidate.def, candidate.stackCount);
+                float stackValue = GetFuelValue(candidate.def, candidate.stackCount);
                 if (_buffer + stackValue <= amount)
                 {
                     _buffer += stackValue;
@@ -122,7 +115,7 @@ namespace YAMP
                 {
                     int numberOfCandidateToConsume = Mathf.CeilToInt(amount / stackValue);
                     itemsToConsume.Add(candidate.SplitOff(numberOfCandidateToConsume));
-                    _buffer += _props.GetFuelValue(candidate.def, numberOfCandidateToConsume);
+                    _buffer += GetFuelValue(candidate.def, numberOfCandidateToConsume);
 
                     Logger.Debug($"YAMP: Consuming {itemsToConsume.Count} items for {amount} fuel value");
                     foreach (var item in itemsToConsume)

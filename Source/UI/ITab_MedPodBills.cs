@@ -1,23 +1,135 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Reflection;
 using RimWorld;
 using UnityEngine;
 using Verse;
 
 namespace YAMP
 {
+    /// <summary>
+    /// Helper class to access protected members of ITab_Pawn_Health
+    /// </summary>
+    public class ITab_Pawn_Health_Helper : ITab_Pawn_Health
+    {
+        private static PropertyInfo selThingProperty;
+        private static FieldInfo selThingBackingField;
+
+        public Thing GetSelThingPublic()
+        {
+            return SelThing;
+        }
+
+        public void SetSelThingPublic(Thing thing)
+        {
+            // Try to set via property first (reflection can sometimes bypass read-only)
+            if (selThingProperty == null)
+            {
+                selThingProperty = typeof(ITab).GetProperty("SelThing", BindingFlags.Public | BindingFlags.Instance);
+            }
+            
+            if (selThingProperty != null)
+            {
+                try
+                {
+                    selThingProperty.SetValue(this, thing);
+                    return; // Success!
+                }
+                catch (Exception ex)
+                {
+                    // Property is read-only, try backing field approach
+                    Log.Warning($"[YAMP] Property SetValue failed: {ex.Message}");
+                }
+            }
+            
+            // If property setting failed, try to find and set the backing field
+            // Search through all types in the inheritance hierarchy
+            if (selThingBackingField == null)
+            {
+                Type currentType = typeof(ITab);
+                Thing currentSelThing = SelThing; // Get current value to match against
+                
+                // Search through inheritance hierarchy
+                while (currentType != null && selThingBackingField == null)
+                {
+                    // Get all fields (including inherited ones)
+                    FieldInfo[] fields = currentType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
+                    foreach (FieldInfo field in fields)
+                    {
+                        // Check if field type matches Thing or is assignable
+                        if (typeof(Thing).IsAssignableFrom(field.FieldType) || field.FieldType == typeof(object))
+                        {
+                            try
+                            {
+                                object fieldValue = field.GetValue(this);
+                                // If this field's value matches SelThing, it's likely the backing field
+                                if (fieldValue == currentSelThing)
+                                {
+                                    selThingBackingField = field;
+                                    Log.Message($"[YAMP] Found SelThing backing field: {field.Name} in {currentType.Name}");
+                                    break;
+                                }
+                            }
+                            catch
+                            {
+                                // Continue searching
+                            }
+                        }
+                    }
+                    
+                    if (selThingBackingField == null)
+                    {
+                        currentType = currentType.BaseType;
+                    }
+                }
+            }
+            
+            if (selThingBackingField != null)
+            {
+                try
+                {
+                    selThingBackingField.SetValue(this, thing);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error($"[YAMP] Failed to set SelThing backing field: {ex.Message}");
+                }
+            }
+            else
+            {
+                // SelThing is managed by the inspector window system, but we're using global selection as a workaround
+                // This is expected and not an error - the global selection change handles it
+                // Log.Warning("[YAMP] Could not find SelThing property or backing field. Using global selection workaround.");
+            }
+        }
+
+        public void FillTabPublic()
+        {
+            FillTab();
+        }
+
+        public Vector2 GetSizePublic()
+        {
+            return size;
+        }
+    }
+
     public class ITab_MedPodBills : ITab
     {
-        private float viewHeight = 1000f;
-        private Vector2 scrollPosition = Vector2.zero;
-        private Bill mouseoverBill;
-
-        private static readonly Vector2 WinSize = new Vector2(420f, 480f);
+        private static ITab_Pawn_Health_Helper pawnHealthTab;
 
         public ITab_MedPodBills()
         {
-            size = WinSize;
+            // Get size from RimWorld's ITab_Pawn_Health to match its dimensions
+            // This ensures the UI displays correctly with proper width and height
+            if (pawnHealthTab == null)
+            {
+                pawnHealthTab = new ITab_Pawn_Health_Helper();
+            }
+            Vector2 baseSize = pawnHealthTab.GetSizePublic(); // Use RimWorld's native size
+            
+            // Add extra width to accommodate mod buttons (like Dubs Mint Menus) and ensure close button is visible
+            // RimWorld's default is typically around 630x510, we add extra width for mod compatibility
+            size = new Vector2(baseSize.x + 15f, baseSize.y);
             labelKey = "TabBills";
         }
 
@@ -25,234 +137,78 @@ namespace YAMP
 
         protected override void FillTab()
         {
-            Rect rect = new Rect(0f, 0f, WinSize.x, WinSize.y).ContractedBy(10f);
-
-            // Draw header
-            Text.Font = GameFont.Small;
-            Rect headerRect = new Rect(rect.x, rect.y, rect.width, 30f);
-
+            // Resize window when tab is opened to ensure proper dimensions
+            if (pawnHealthTab == null)
+            {
+                pawnHealthTab = new ITab_Pawn_Health_Helper();
+            }
+            Vector2 baseSize = pawnHealthTab.GetSizePublic();
+            size = new Vector2(baseSize.x + 250f, baseSize.y);
+            
             Pawn patient = SelMedPod.Container.GetPawn();
-            if (patient != null)
+            
+            if (patient == null)
             {
-                Widgets.Label(headerRect, $"Patient: {patient.LabelShort}");
-            }
-            else
-            {
-                Widgets.Label(headerRect, "No patient in pod");
-            }
-
-            // Draw bill list
-            Rect billListRect = new Rect(rect.x, headerRect.yMax + 5f, rect.width, rect.height - headerRect.height - 40f);
-            DrawBillList(billListRect);
-
-            // Draw add bill button
-            Rect addButtonRect = new Rect(rect.x, billListRect.yMax + 5f, rect.width, 30f);
-            if (patient != null && Widgets.ButtonText(addButtonRect, "Add Bill"))
-            {
-                OpenAddBillMenu();
-            }
-        }
-
-        private void DrawBillList(Rect rect)
-        {
-            BillStack billStack = SelMedPod.BillStack;
-            if (billStack == null || billStack.Count == 0)
-            {
+                // No patient case - show simple message
+                Rect rect = new Rect(0f, 0f, size.x, size.y).ContractedBy(10f);
+                Text.Font = GameFont.Small;
                 Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(rect, "No bills");
+                Widgets.Label(rect, "No patient in pod");
                 Text.Anchor = TextAnchor.UpperLeft;
                 return;
             }
 
-            Rect viewRect = new Rect(0f, 0f, rect.width - 16f, viewHeight);
-
-            // Wrap scroll view in try-finally to ensure EndScrollView is always called
-            Widgets.BeginScrollView(rect, ref scrollPosition, viewRect);
+            // Delegate to RimWorld's ITab_Pawn_Health to render bills
+            // This ensures mod compatibility and uses RimWorld's native UI
             try
             {
-                float curY = 0f;
-                for (int i = 0; i < billStack.Count; i++)
+                // Ensure helper instance exists (already created above)
+
+                // Store original selection
+                Thing originalSelectedThing = Find.Selector.SingleSelectedThing;
+                
+                try
                 {
-                    Bill bill = billStack[i];
-                    Rect billRect = new Rect(0f, curY, viewRect.width, 50f);
-
-                    DrawBill(bill, billRect, i);
-                    curY += 55f;
+                    // Temporarily change global selection to the pawn
+                    // This allows ITab_Pawn_Health to access the pawn via SelThing
+                    if (originalSelectedThing != patient)
+                    {
+                        Find.Selector.ClearSelection();
+                        Find.Selector.Select(patient);
+                    }
+                    
+                    // Try to set SelThing on the helper instance
+                    pawnHealthTab.SetSelThingPublic(patient);
+                    
+                    // Delegate to RimWorld's FillTab - this will render the bills UI
+                    pawnHealthTab.FillTabPublic();
                 }
-
-                viewHeight = curY;
-            }
-            finally
-            {
-                Widgets.EndScrollView();
-            }
-        }
-
-        private void DrawBill(Bill bill, Rect rect, int index)
-        {
-            // Background
-            if (index % 2 == 1)
-            {
-                Widgets.DrawLightHighlight(rect);
-            }
-
-            if (Mouse.IsOver(rect))
-            {
-                mouseoverBill = bill;
-                Widgets.DrawHighlight(rect);
-            }
-
-            // Bill label
-            Rect labelRect = new Rect(rect.x + 5f, rect.y + 5f, rect.width - 100f, 20f);
-            Text.Anchor = TextAnchor.MiddleLeft;
-            Widgets.Label(labelRect, bill.LabelCap);
-            Text.Anchor = TextAnchor.UpperLeft;
-
-            // Status
-            if (bill is Bill_Medical billMedical)
-            {
-                Rect statusRect = new Rect(rect.x + 5f, labelRect.yMax, rect.width - 100f, 20f);
-                Text.Font = GameFont.Tiny;
-
-                if (billMedical.Part != null)
+                finally
                 {
-                    Widgets.Label(statusRect, $"Part: {billMedical.Part.Label}");
+                    // Restore original selection
+                    if (originalSelectedThing != patient && originalSelectedThing != null)
+                    {
+                        Find.Selector.ClearSelection();
+                        Find.Selector.Select(originalSelectedThing);
+                    }
+                    else if (originalSelectedThing == null && Find.Selector.SingleSelectedThing == patient)
+                    {
+                        // Restore to no selection if it was null originally
+                        Find.Selector.ClearSelection();
+                    }
                 }
-
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"[YAMP] Error delegating to RimWorld's ITab_Pawn_Health: {ex}");
+                // Fallback: show error message
+                Rect rect = new Rect(0f, 0f, size.x, size.y).ContractedBy(10f);
                 Text.Font = GameFont.Small;
-            }
-
-            // Delete button
-            Rect deleteRect = new Rect(rect.xMax - 90f, rect.y + 10f, 80f, 30f);
-            if (Widgets.ButtonText(deleteRect, "Delete"))
-            {
-                SelMedPod.BillStack.Delete(bill);
+                Text.Anchor = TextAnchor.MiddleCenter;
+                Widgets.Label(rect, $"Error loading bills: {ex.Message}");
+                Text.Anchor = TextAnchor.UpperLeft;
             }
         }
 
-        private void OpenAddBillMenu()
-        {
-            Pawn patient = SelMedPod.Container.GetPawn();
-            if (patient == null) return;
-
-            List<FloatMenuOption> options = new List<FloatMenuOption>();
-
-            // Get all medical recipes
-            IEnumerable<RecipeDef> recipes = DefDatabase<RecipeDef>.AllDefs
-                .Where(r => r.AllRecipeUsers != null &&
-                           r.AllRecipeUsers.Any(t => t.defName == "Human" || t.race?.Humanlike == true));
-
-            foreach (RecipeDef recipe in recipes)
-            {
-                // Basic availability check
-                if (!recipe.AvailableNow || !recipe.AvailableOnNow(patient))
-                {
-                    continue;
-                }
-
-                // Ingredient availability check
-                if (!IngredientsAvailable(recipe))
-                {
-                    continue;
-                }
-
-                if (recipe.targetsBodyPart)
-                {
-                    // Flattened: Add an option for each valid body part
-                    IEnumerable<BodyPartRecord> parts = recipe.Worker.GetPartsToApplyOn(patient, recipe);
-                    foreach (BodyPartRecord part in parts)
-                    {
-                        string label = $"{recipe.LabelCap} ({part.Label})";
-                        Action action = () =>
-                        {
-                            Bill_Medical bill = new Bill_Medical(recipe, null);
-                            bill.Part = part;
-                            SelMedPod.BillStack.AddBill(bill);
-                        };
-                        options.Add(new FloatMenuOption(label, action));
-                    }
-                }
-                else
-                {
-                    // No body part needed
-                    string label = recipe.LabelCap;
-                    Action action = () =>
-                    {
-                        Bill_Medical bill = new Bill_Medical(recipe, null);
-                        SelMedPod.BillStack.AddBill(bill);
-                    };
-                    options.Add(new FloatMenuOption(label, action));
-                }
-            }
-
-            if (options.Count == 0)
-            {
-                options.Add(new FloatMenuOption("No available surgeries (check ingredients)", null));
-            }
-            else
-            {
-                // Sort options alphabetically for better usability
-                options.SortBy(o => o.Label);
-            }
-
-            Find.WindowStack.Add(new FloatMenu(options));
-        }
-
-        private bool IngredientsAvailable(RecipeDef recipe)
-        {
-            // If no ingredients, it's available
-            if (recipe.ingredients == null || recipe.ingredients.Count == 0) return true;
-
-            foreach (IngredientCount ing in recipe.ingredients)
-            {
-                // Skip medicine check as per requirements (handled by fuel/internal stock)
-                if (ing.filter.Allows(ThingDefOf.MedicineHerbal))
-                {
-                    continue;
-                }
-
-                float needed = ing.GetBaseCount();
-                float found = 0;
-
-                // 1. Check inside the pod
-                foreach (Thing t in SelMedPod.Container.GetDirectlyHeldThings())
-                {
-                    if (ing.filter.Allows(t))
-                    {
-                        found += t.stackCount;
-                    }
-                }
-
-                if (found >= needed) continue;
-
-                // 2. Check on the map
-                // We iterate through all allowed ThingDefs in the filter to find them on the map
-                if (SelMedPod.Map != null)
-                {
-                    foreach (ThingDef def in ing.filter.AllowedThingDefs)
-                    {
-                        // Use ListerThings for performance
-                        List<Thing> mapThings = SelMedPod.Map.listerThings.ThingsOfDef(def);
-                        if (mapThings != null)
-                        {
-                            foreach (Thing t in mapThings)
-                            {
-                                if (!t.IsForbidden(Faction.OfPlayer) && !t.Position.Fogged(SelMedPod.Map))
-                                {
-                                    found += t.stackCount;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (found < needed)
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
     }
 }

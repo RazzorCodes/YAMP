@@ -15,7 +15,7 @@ namespace YAMP
         {
             if (!(t is Building_MedPod pod)) return false;
 
-            OperationalStock fuelComp = pod.OperationalStock;
+            OperationalStock fuelComp = pod.Stock;
             Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
             PodContainer podContainer = pod.Container;
 
@@ -50,7 +50,7 @@ namespace YAMP
         public override Job JobOnThing(Pawn pawn, Thing t, bool forced = false)
         {
             Building_MedPod pod = (Building_MedPod)t;
-            OperationalStock fuelComp = pod.OperationalStock;
+            OperationalStock fuelComp = pod.Stock;
             Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
             PodContainer podContainer = pod.Container;
 
@@ -114,7 +114,7 @@ namespace YAMP
 
         private Thing FindMedicine(Pawn pawn, Building_MedPod pod)
         {
-            OperationalStock fuelComp = pod.OperationalStock;
+            OperationalStock fuelComp = pod.Stock;
             if (fuelComp == null) return null;
 
             // 1. Search nearby (linked) shelves

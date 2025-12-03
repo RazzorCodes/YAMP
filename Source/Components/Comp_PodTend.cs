@@ -3,6 +3,7 @@ using System;
 using System.Linq;
 using UnityEngine;
 using Verse;
+using YAMP.Activities;
 
 namespace YAMP
 {
@@ -24,15 +25,11 @@ namespace YAMP
     {
         public CompProp_PodTend Props => (CompProp_PodTend)props;
 
-        private OperationalStock _operationalStock;
-        private OperationalStock OperationalStock => _operationalStock ??= ((Building_MedPod)parent).OperationalStock;
-
-        private PodContainer _podConatiner;
-        private PodContainer PodConatiner => _podConatiner ??= ((Building_MedPod)parent).Container;
-
         private int ticksToComplete = 0;
         private int currentTick = 0;
         private bool isTending = false;
+
+        ActivityTend _currentActivity = null;
 
         public override void PostExposeData()
         {
@@ -45,132 +42,59 @@ namespace YAMP
         public override void CompTick()
         {
             base.CompTick();
-            if (PodConatiner.GetPawn() == null)
-            {
-                if (isTending)
-                {
-                    CancelTend();
-                }
-                return;
-            }
-
-            if (isTending)
-            {
-                currentTick++;
-                if (currentTick >= ticksToComplete)
-                {
-                    CompleteTend();
-                }
-            }
-            else if (parent.IsHashIntervalTick(100))
-            {
-                TryStartTend();
-            }
-        }
-
-        private void TryStartTend()
-        {
-            Pawn patient = PodConatiner.GetPawn();
+            Pawn patient = ((Building_MedPod)parent).Container.GetPawn();
             if (patient == null)
             {
-                return;
-            }
-
-            if (!MedPodCanTend(patient))
-            {
-                return;
-            }
-
-            // Start Tending
-            isTending = true;
-            currentTick = 0;
-            ticksToComplete = 120; // 2 seconds for tend
-        }
-
-        private void CancelTend()
-        {
-            isTending = false;
-            currentTick = 0;
-            Logger.Log("[Tend]", "Tend cancelled");
-        }
-
-        private void CompleteTend()
-        {
-            isTending = false;
-            currentTick = 0;
-
-            Pawn patient = PodConatiner.Get().OfType<Pawn>().FirstOrDefault();
-            if (patient == null) return;
-
-            Logger.Log("[Tend]", "Tending patient " + patient.LabelShort);
-            if (!MedPodCanTend(patient))
-            {
-                Logger.Log("[Tend]", "Patient is no longer tendable");
-                return;
-            }
-
-            if (!PerformTend(patient))
-            {
-                Logger.Log("Tend", "Failed to perform tend on " + patient.LabelShort);
-            }
-        }
-
-        private bool MedPodCanTend(Pawn patient)
-        {
-            return
-                patient != null &&
-                patient.RaceProps.IsFlesh &&
-                patient.health.hediffSet.hediffs.Any(h => h.TendableNow(false)) &&
-                OperationalStock != null && OperationalStock.TotalStock >= Props.tendCost;
-        }
-
-        private bool PerformTend(Pawn patient)
-        {
-            Hediff hediff = patient.health.hediffSet.hediffs
-                .Where<Hediff>((Func<Hediff, bool>)(h => h.TendableNow(false)))
-                .ToList<Hediff>()
-                .OrderByDescending(h => (h as Hediff_Injury)?.BleedRate ?? 0f) // Prioritize greatest bleeding
-                .ThenByDescending(h => h.Severity) // Then by greatest severity
-                .FirstOrDefault();
-
-            if (hediff == null)
-            {
-                return false;
-            }
-            else
-            {
-                if (OperationalStock != null && !OperationalStock.TryConsumeStock(CalculateStockCost()))
+                // No patient; if there was an activity, stop it
+                if (_currentActivity != null && !_currentActivity.IsFinished)
                 {
-                    return false;
+                    _currentActivity.Stop();
+                    _currentActivity = null;
                 }
+                return;
 
-                if (Rand.Value > Props.successChance)
-                {
-                    return false;
-                }
-
-                float quality = Rand.Range(0, 100) >= 50
-                    ? Rand.Range(Props.qualityMid, Props.qualityMax)
-                    : Rand.Range(Props.qualityMin, Props.qualityMid);
-
-                hediff.Tended(quality, 1f, 0);
-
-                return true;
             }
-        }
 
-        private float CalculateStockCost()
-        {
-            return Props.tendCost;
+            if (_currentActivity == null && parent is Building_MedPod medPod && ActivityTend.CanTend(medPod))
+            {
+                // Attempt to start a new tend activity if possible
+                _currentActivity = new ActivityTend(medPod);
+                Logger.Debug($"Started tend activity: {_currentActivity.Name}");
+                _currentActivity.Start();
+            }
+
+            if (_currentActivity != null && _currentActivity.IsFinished)
+            {
+                Logger.Log("[Tend]", "Tend activity finished, executing tend");
+
+                var activityToExecute = _currentActivity;
+                activityToExecute.Execute();
+
+                _currentActivity = null;
+                return;
+            }
+
+            if (_currentActivity != null && parent.IsHashIntervalTick(100))
+            {
+                _currentActivity.Update();
+            }
         }
 
         public override string CompInspectStringExtra()
         {
-            if (isTending)
+            if (_currentActivity != null)
             {
-                return $"Tending: {(float)currentTick / ticksToComplete:P0}";
+                if (_currentActivity.InProgress)
+                {
+                    return $"Tending: {_currentActivity.ProgressPercentage:P0}";
+                }
+                else
+                {
+                    return $"Pending Tend";
+                }
             }
-            return null;
+
+            return "No pending tend";
         }
 
         public override void PostDraw()
