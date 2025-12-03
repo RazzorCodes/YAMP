@@ -72,6 +72,10 @@ namespace YAMP.Activities
             if (!result.Success)
             {
                 Logger.Debug($"Activity {Name} failed to execute operation");
+                
+                // Notify components after failed operation
+                _facility.GetComp<Comp_PodTend>()?.CheckTend();
+                _facility.GetComp<Comp_PodOperate>()?.CheckOperation();
             }
 
             End();
@@ -211,10 +215,10 @@ namespace YAMP.Activities
                 }
 
                 var part = ReservePart(container, ingredient);
-                Logger.Debug($"Activity {Name} reserved {part.Count} of {ingredient.filter.Summary} for {bill.recipe.label}");
-
+                
                 if (part != null)
                 {
+                    Logger.Debug($"Activity {Name} reserved {part.Count} of {ingredient.filter.Summary} for {bill.recipe.label}");
                     parts.AddRange(part);
                 }
                 else

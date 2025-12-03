@@ -42,21 +42,9 @@ namespace YAMP
         public override void CompTick()
         {
             base.CompTick();
-            if (_currentActivity == null)
-            {
-                Logger.Debug("_currentActivity is null");
-                _currentBill ??= GetSurgeryBill();
-                if (_currentBill == null)
-                {
-                    Logger.Debug("No surgery bill found");
-                    return;
-                }
-                _currentActivity = new ActivityOperate((Building_MedPod)parent, _currentBill);
-                _currentActivity.Start(); // Start the activity to set work amount
-                Logger.Debug($"Received new surgery: {_currentActivity.Name}");
-            }
-
-            if (_currentActivity.IsFinished)
+            
+            // Handle activity completion
+            if (_currentActivity != null && _currentActivity.IsFinished)
             {
                 Logger.Debug("Activity finished, executing operation");
 
@@ -78,19 +66,47 @@ namespace YAMP
                     }
                     _currentBill = null;
                 }
+                
+                // Check for next operation in queue
+                CheckOperation();
                 return;
             }
 
-            if (PodConatiner.GetPawn() == null)
+            // Stop activity if patient leaves
+            if (_currentActivity != null && PodConatiner.GetPawn() == null)
             {
                 _currentActivity.Stop();
+                _currentActivity = null;
+                _currentBill = null;
                 return;
             }
 
-            if (parent.IsHashIntervalTick(250))
+            // Update activity progress on interval
+            if (_currentActivity != null && parent.IsHashIntervalTick(250))
             {
                 _currentActivity.Update();
             }
+
+            CheckOperation();
+        }
+
+        public void CheckOperation()
+        {
+            if (_currentActivity != null)
+            {
+                return; // Already have an activity running
+            }
+
+            _currentBill ??= GetSurgeryBill();
+            if (_currentBill == null)
+            {
+                Logger.Debug("No surgery bill found");
+                return;
+            }
+
+            _currentActivity = new ActivityOperate((Building_MedPod)parent, _currentBill);
+            _currentActivity.Start(); // Start the activity to set work amount
+            Logger.Debug($"Received new surgery: {_currentActivity.Name}");
         }
 
         public override IEnumerable<FloatMenuOption> CompFloatMenuOptions(Pawn selPawn)

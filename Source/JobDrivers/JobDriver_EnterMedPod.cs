@@ -25,6 +25,10 @@ namespace YAMP
                     {
                         pawn.DeSpawn();
                         podContainer.GetDirectlyHeldThings().TryAdd(pawn);
+                        
+                        // Notify components that pawn entered pod
+                        pod.GetComp<Comp_PodTend>()?.CheckTend();
+                        pod.GetComp<Comp_PodOperate>()?.CheckOperation();
                     }
                 },
                 defaultCompleteMode = ToilCompleteMode.Instant

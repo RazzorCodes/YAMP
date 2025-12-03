@@ -42,6 +42,29 @@ namespace YAMP
         public override void CompTick()
         {
             base.CompTick();
+            
+            // Handle activity completion
+            if (_currentActivity != null && _currentActivity.IsFinished)
+            {
+                Logger.Log("[Tend]", "Tend activity finished, executing tend");
+                _currentActivity?.Execute();
+                _currentActivity = null;
+                CheckTend();
+                return;
+            }
+
+            // Update activity progress on interval
+            if (_currentActivity != null && parent.IsHashIntervalTick(100))
+            {
+                _currentActivity.Update();
+                return;
+            }
+
+            CheckTend();
+        }
+
+        public void CheckTend()
+        {
             Pawn patient = ((Building_MedPod)parent).Container.GetPawn();
             if (patient == null)
             {
@@ -52,7 +75,6 @@ namespace YAMP
                     _currentActivity = null;
                 }
                 return;
-
             }
 
             if (_currentActivity == null && parent is Building_MedPod medPod && ActivityTend.CanTend(medPod))
@@ -61,22 +83,6 @@ namespace YAMP
                 _currentActivity = new ActivityTend(medPod);
                 Logger.Debug($"Started tend activity: {_currentActivity.Name}");
                 _currentActivity.Start();
-            }
-
-            if (_currentActivity != null && _currentActivity.IsFinished)
-            {
-                Logger.Log("[Tend]", "Tend activity finished, executing tend");
-
-                var activityToExecute = _currentActivity;
-                activityToExecute.Execute();
-
-                _currentActivity = null;
-                return;
-            }
-
-            if (_currentActivity != null && parent.IsHashIntervalTick(100))
-            {
-                _currentActivity.Update();
             }
         }
 

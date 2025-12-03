@@ -7,7 +7,7 @@ namespace YAMP
 {
     public partial class Building_MedPod : Building, IThingHolder, IOpenable
     {
-        List<IActivity> _activityList;
+        List<IActivity> _activityList = new List<IActivity>();
         IActivity _currentActivity => _activityList.FirstOrFallback(null);
 
         private PodContainer _container;
@@ -33,7 +33,7 @@ namespace YAMP
 
         public void GetChildHolders(List<IThingHolder> outChildren)
         {
-            outChildren = null;
+            // No child holders - list remains empty
         }
 
         public ThingOwner GetDirectlyHeldThings()

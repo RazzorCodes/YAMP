@@ -102,31 +102,47 @@ namespace YAMP
                 .OrderBy(thing => thing.def.BaseMarketValue)
                 .ToList();
 
-            var itemsToConsume = new List<Thing>();
+            float stillNeeded = amount - _buffer;
+            
             foreach (var candidate in candidates)
             {
-                float stackValue = GetFuelValue(candidate.def, candidate.stackCount);
-                if (_buffer + stackValue <= amount)
+                if (stillNeeded <= 0)
                 {
-                    _buffer += stackValue;
-                    itemsToConsume.Add(candidate.SplitOff(candidate.stackCount));
+                    break;
                 }
-                else // explicit: if (_buffer + stackValue > amount)
+                
+                float stackValue = GetFuelValue(candidate.def, candidate.stackCount);
+                float perItemValue = GetFuelValue(candidate.def, 1);
+                
+                if (stackValue <= stillNeeded)
                 {
-                    int numberOfCandidateToConsume = Mathf.CeilToInt(amount / stackValue);
-                    itemsToConsume.Add(candidate.SplitOff(numberOfCandidateToConsume));
-                    _buffer += GetFuelValue(candidate.def, numberOfCandidateToConsume);
-
-                    Logger.Debug($"YAMP: Consuming {itemsToConsume.Count} items for {amount} fuel value");
-                    foreach (var item in itemsToConsume)
-                    {
-                        Logger.Debug($"YAMP: Consumed {item.stackCount} {item.def.defName}");
-                        item.Destroy();
-                    }
-
+                    // Consume entire stack
+                    _buffer += stackValue;
+                    stillNeeded -= stackValue;
+                    var splitItem = candidate.SplitOff(candidate.stackCount);
+                    Logger.Debug($"YAMP: Consumed {splitItem.stackCount} {splitItem.def.defName}");
+                    splitItem.Destroy();
+                }
+                else
+                {
+                    // Consume partial stack
+                    int numberOfCandidateToConsume = Mathf.CeilToInt(stillNeeded / perItemValue);
+                    float consumedValue = GetFuelValue(candidate.def, numberOfCandidateToConsume);
+                    _buffer += consumedValue;
+                    stillNeeded = 0;
+                    var splitItem = candidate.SplitOff(numberOfCandidateToConsume);
+                    Logger.Debug($"YAMP: Consumed {splitItem.stackCount} {splitItem.def.defName}");
+                    splitItem.Destroy();
+                    
                     ComputeStock();
                     return true;
                 }
+            }
+            
+            if (stillNeeded <= 0)
+            {
+                ComputeStock();
+                return true;
             }
 
             Logger.Error($"Could not consume enough items to make stock when TotalStock({TotalStock}) < amount({amount})");
