@@ -15,14 +15,14 @@ namespace YAMP
         {
             if (!(t is Building_MedPod pod)) return false;
 
-            OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
+            OperationalStock fuelComp = pod.OperationalStock;
             Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
             PodContainer podContainer = pod.Container;
 
             if (fuelComp == null || opsComp == null || podContainer == null) return false;
 
             // Check if we need fuel (no max capacity check - just check if stock is low)
-            if (fuelComp.Stock < 100f)
+            if (fuelComp.TotalStock < 100f)
             {
                 Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null) return true;
@@ -50,12 +50,12 @@ namespace YAMP
         public override Job JobOnThing(Pawn pawn, Thing t, bool forced = false)
         {
             Building_MedPod pod = (Building_MedPod)t;
-            OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
+            OperationalStock fuelComp = pod.OperationalStock;
             Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
             PodContainer podContainer = pod.Container;
 
             // Prioritize Fuel if very low
-            if (fuelComp.Stock < 50f)
+            if (fuelComp.TotalStock < 50f)
             {
                 Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null)
@@ -84,7 +84,7 @@ namespace YAMP
             }
 
             // Fallback to fuel
-            if (fuelComp.Stock < 100f)
+            if (fuelComp.TotalStock < 100f)
             {
                 Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null)
@@ -114,7 +114,7 @@ namespace YAMP
 
         private Thing FindMedicine(Pawn pawn, Building_MedPod pod)
         {
-            OperationalStock fuelComp = pod.TryGetComp<OperationalStock>();
+            OperationalStock fuelComp = pod.OperationalStock;
             if (fuelComp == null) return null;
 
             // 1. Search nearby (linked) shelves

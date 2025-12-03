@@ -50,5 +50,14 @@ namespace YAMP.OperationSystem
                 }
             }
         }
+
+        protected virtual new void HandleFailure(OperationContext context, OperationResult result)
+        {
+            result.FailureReason = $"{Name} failed due to complications";
+            // Injury on failure
+            context.Patient.TakeDamage(
+                new DamageInfo(DamageDefOf.Cut, 15, 0, -1, null, context.BodyPart)
+            );
+        }
     }
 }

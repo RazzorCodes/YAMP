@@ -44,7 +44,7 @@ namespace YAMP
 
                     if (carriedThing.def.IsMedicine)
                     {
-                        OperationalStock operationalStock = Pod.TryGetComp<OperationalStock>();
+                        OperationalStock operationalStock = Pod.OperationalStock;
                         if (operationalStock != null)
                         {
                             // Transfer directly to container

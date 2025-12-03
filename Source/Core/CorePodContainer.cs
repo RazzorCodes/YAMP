@@ -8,7 +8,7 @@ using Verse.AI;
 namespace YAMP
 {
 
-    public class PodContainer : IExposable
+    public class PodContainer
     {
         private ThingOwner<Thing> _container;
         private IThingHolder _owner;
@@ -24,33 +24,21 @@ namespace YAMP
             _container = new ThingOwner<Thing>();
         }
 
-        public void ExposeData()
-        {
-            Scribe_Deep.Look(ref _container, "innerContainer", _owner);
-            if (Scribe.mode == LoadSaveMode.PostLoadInit)
-            {
-                if (_container == null)
-                {
-                    _container = new ThingOwner<Thing>(_owner);
-                }
-            }
-        }
-
         public List<Thing> Get()
         {
-            if (_container == null) _container = new ThingOwner<Thing>(_owner);
-            return _container.ToList();
+            _container ??= new ThingOwner<Thing>(_owner);
+            return [.. _container];
         }
 
         public Pawn GetPawn()
         {
-            if (_container == null) _container = new ThingOwner<Thing>(_owner);
+            _container ??= new ThingOwner<Thing>(_owner);
             return _container.OfType<Pawn>().FirstOrDefault();
         }
 
         public ThingOwner GetDirectlyHeldThings()
         {
-            if (_container == null) _container = new ThingOwner<Thing>(_owner);
+            _container ??= new ThingOwner<Thing>(_owner);
             return _container;
         }
     }

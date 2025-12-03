@@ -25,7 +25,7 @@ namespace YAMP
         public CompProp_PodTend Props => (CompProp_PodTend)props;
 
         private OperationalStock _operationalStock;
-        private OperationalStock OperationalStock => _operationalStock ??= parent.GetComp<OperationalStock>();
+        private OperationalStock OperationalStock => _operationalStock ??= ((Building_MedPod)parent).OperationalStock;
 
         private PodContainer _podConatiner;
         private PodContainer PodConatiner => _podConatiner ??= ((Building_MedPod)parent).Container;
@@ -120,7 +120,7 @@ namespace YAMP
                 patient != null &&
                 patient.RaceProps.IsFlesh &&
                 patient.health.hediffSet.hediffs.Any(h => h.TendableNow(false)) &&
-                OperationalStock != null && OperationalStock.Stock >= Props.tendCost;
+                OperationalStock != null && OperationalStock.TotalStock >= Props.tendCost;
         }
 
         private bool PerformTend(Pawn patient)

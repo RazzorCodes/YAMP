@@ -36,7 +36,6 @@
       <ComponentSpacer>2</ComponentSpacer>
     </costList>
     <comps>
-      <li Class="YAMP.CompProp_OperationalStock" />
       <li Class="YAMP.CompProp_PodOperate" />
       <li Class="YAMP.CompProp_PodTend" />
       <li Class="CompProperties_Power">
