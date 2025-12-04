@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <!-- Centralize intermediate output to solution root -->
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'YAMP'">$(MSBuildThisFileDirectory)obj\YAMP\</BaseIntermediateOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(MSBuildProjectName)' == 'YAMP.Tests'">$(MSBuildThisFileDirectory)obj\YAMP.Tests\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+</Project>

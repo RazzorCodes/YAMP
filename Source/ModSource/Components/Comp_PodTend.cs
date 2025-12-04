@@ -24,30 +24,27 @@ namespace YAMP
     public class Comp_PodTend : ThingComp
     {
         public CompProp_PodTend Props => (CompProp_PodTend)props;
-
-        private int ticksToComplete = 0;
-        private int currentTick = 0;
-        private bool isTending = false;
-
-        ActivityTend _currentActivity = null;
+        YAMP.Activities.IActivity _currentActivity = null;
 
         public override void PostExposeData()
         {
             base.PostExposeData();
-            Scribe_Values.Look(ref ticksToComplete, "ticksToComplete", 0);
-            Scribe_Values.Look(ref currentTick, "currentTick", 0);
-            Scribe_Values.Look(ref isTending, "isTending", false);
+        }
+
+        public override void PostSpawnSetup(bool respawningAfterLoad)
+        {
+            base.PostSpawnSetup(respawningAfterLoad);
+            Logger.Debug("Comp_PodTend spawned!");
         }
 
         public override void CompTick()
         {
             base.CompTick();
-            
+
             // Handle activity completion
             if (_currentActivity != null && _currentActivity.IsFinished)
             {
-                Logger.Log("[Tend]", "Tend activity finished, executing tend");
-                _currentActivity?.Execute();
+                Logger.Log("[Tend]", "Tend activity finished");
                 _currentActivity = null;
                 CheckTend();
                 return;
@@ -56,7 +53,7 @@ namespace YAMP
             // Update activity progress on interval
             if (_currentActivity != null && parent.IsHashIntervalTick(100))
             {
-                _currentActivity.Update();
+                _currentActivity.Update(Verse.GenTicks.TicksGame);
                 return;
             }
 
@@ -77,12 +74,21 @@ namespace YAMP
                 return;
             }
 
-            if (_currentActivity == null && parent is Building_MedPod medPod && ActivityTend.CanTend(medPod))
+            if (_currentActivity == null && parent is Building_MedPod medPod && TendHandler.CanTend(medPod))
             {
                 // Attempt to start a new tend activity if possible
-                _currentActivity = new ActivityTend(medPod);
-                Logger.Debug($"Started tend activity: {_currentActivity.Name}");
-                _currentActivity.Start();
+                var args = new object[] { medPod };
+
+                _currentActivity = new Activity(
+                    name: "Tend",
+                    onComplete: TendHandler.OnCompleteHandler,
+                    onStop: TendHandler.OnStopHandler,
+                    args: args,
+                    speedMultiplier: 1f
+                );
+
+                _currentActivity.Start(120); // 2 seconds (120 ticks)
+                Logger.Debug($"Started tend activity");
             }
         }
 
@@ -106,18 +112,19 @@ namespace YAMP
         public override void PostDraw()
         {
             base.PostDraw();
+            Logger.Debug($"_currentActivity: {_currentActivity?.InProgress} {_currentActivity?.ProgressPercentage}");
 
-            if (isTending)
+            if (_currentActivity?.InProgress == true)
             {
                 GenDraw.DrawFillableBar(new GenDraw.FillableBarRequest
                 {
                     center = parent.DrawPos + Vector3.up * 0.1f + Vector3.forward * 0.25f,
                     size = new Vector2(0.8f, 0.14f),
-                    fillPercent = (float)currentTick / ticksToComplete,
+                    fillPercent = _currentActivity.ProgressPercentage,
                     filledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.2f, 0.8f, 0.2f)), // Green for tend
                     unfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.3f, 0.3f, 0.3f)),
                     margin = 0.15f,
-                    rotation = Rot4.North
+                    rotation = this.parent.Rotation
                 });
             }
         }

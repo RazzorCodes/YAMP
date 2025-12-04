@@ -1,3 +1,7 @@
+param (
+    [switch]$testnow
+)
+
 $ErrorActionPreference = "Stop"
 
 $modName = "YAMP"
@@ -22,7 +26,7 @@ try {
     # Copy folders
     $folders = @("About", "Defs", "Textures", "Assemblies")
     foreach ($folder in $folders) {
-        $src = "$sourceDir\$folder"
+        $src = "$sourceDir\Mod\$folder"
         $dst = "$destDir\$folder"
     
         try {
@@ -42,6 +46,16 @@ try {
     }
 
     Write-Host "Deployment complete!"
+
+    if ($testnow) {
+        Write-Host "Killing running RimWorld instances..."
+        Stop-Process -Name "RimWorldWin64" -ErrorAction SilentlyContinue
+
+        $devDataPath = "C:\RimworldDevData\Saves"
+
+        Write-Host "Launching RimWorld..."
+        Start-Process "C:\Program Files (x86)\Steam\steamapps\common\RimWorld\RimWorldWin64.exe" -ArgumentList "-savedatafolder=`"$devDataPath`" -quicktest"
+    }
 }
 catch {
     Write-Error $_.Exception.Message

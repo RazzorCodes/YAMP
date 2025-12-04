@@ -26,13 +26,15 @@ namespace YAMP
         private OperationalStock _operationalStock;
         public OperationalStock OperationalStock =>
             _operationalStock ??= ((Building_MedPod)parent).Stock;
+
         private PodContainer _podConatiner;
         private PodContainer PodConatiner =>
             _podConatiner ??= ((Building_MedPod)parent).Container;
 
         private Bill_Medical _currentBill = null;
 
-        private ActivityOperate _currentActivity = null;
+        private YAMP.Activities.IActivity _currentActivity = null;
+        public float Progress => _currentActivity?.ProgressPercentage ?? 0f;
 
         public override void PostExposeData()
         {
@@ -42,16 +44,11 @@ namespace YAMP
         public override void CompTick()
         {
             base.CompTick();
-            
+
             // Handle activity completion
             if (_currentActivity != null && _currentActivity.IsFinished)
             {
-                Logger.Debug("Activity finished, executing operation");
-
-                // Execute the operation before cleaning up
-                var activityToExecute = _currentActivity as ActivityOperate;
-                activityToExecute?.Execute();
-
+                Logger.Debug("Activity finished");
                 _currentActivity = null;
 
                 // Safely remove the bill
@@ -66,7 +63,7 @@ namespace YAMP
                     }
                     _currentBill = null;
                 }
-                
+
                 // Check for next operation in queue
                 CheckOperation();
                 return;
@@ -84,7 +81,7 @@ namespace YAMP
             // Update activity progress on interval
             if (_currentActivity != null && parent.IsHashIntervalTick(250))
             {
-                _currentActivity.Update();
+                _currentActivity.Update(Verse.GenTicks.TicksGame);
             }
 
             CheckOperation();
@@ -104,9 +101,36 @@ namespace YAMP
                 return;
             }
 
-            _currentActivity = new ActivityOperate((Building_MedPod)parent, _currentBill);
-            _currentActivity.Start(); // Start the activity to set work amount
-            Logger.Debug($"Received new surgery: {_currentActivity.Name}");
+            // Reserve parts and calculate stock cost before starting activity
+            var parts = OperateHandler.ReserveParts(PodConatiner, _currentBill);
+            if (parts == null)
+            {
+                Logger.Debug($"Missing parts for {_currentBill.recipe.label}");
+                return;
+            }
+
+            var stockCost = OperationalStock.CalculateStockCost(_currentBill.recipe);
+            if (stockCost > OperationalStock.TotalStock)
+            {
+                Logger.Debug($"Missing stock for {_currentBill.recipe.label}. Needed {stockCost}, have {OperationalStock.TotalStock}");
+                OperateHandler.ReturnParts(PodConatiner, parts, _currentBill);
+                return;
+            }
+
+            var facility = (Building_MedPod)parent;
+            var args = new object[] { facility, _currentBill, parts, stockCost };
+
+            _currentActivity = new Activity(
+                name: $"Operate/{_currentBill.recipe.label}",
+                onComplete: OperateHandler.OnCompleteHandler,
+                onStop: OperateHandler.OnStopHandler,
+                args: args,
+                speedMultiplier: 1f
+            );
+
+            float workAmount = _currentBill.GetWorkAmount() > 100 ? _currentBill.GetWorkAmount() : 100;
+            _currentActivity.Start(workAmount);
+            Logger.Debug($"Started operation activity: {_currentBill.recipe.label}");
         }
 
         public override IEnumerable<FloatMenuOption> CompFloatMenuOptions(Pawn selPawn)
@@ -162,46 +186,6 @@ namespace YAMP
             Logger.Debug("No surgery bill found");
 
             return null;
-        }
-
-        public override void PostDraw()
-        {
-            base.PostDraw();
-
-            Pawn patient = PodConatiner.GetPawn();
-            if (patient == null)
-            {
-                return;
-            }
-
-            if (_currentActivity?.InProgress == true)
-            {
-                Vector3 barPos = parent.DrawPos;
-                barPos.y = AltitudeLayer.MetaOverlays.AltitudeFor();
-                barPos += Vector3.forward * 0.25f;
-
-                GenDraw.DrawFillableBar(new GenDraw.FillableBarRequest
-                {
-                    center = barPos,
-                    size = new Vector2(0.8f, 0.14f),
-                    fillPercent = _currentActivity.ProgressPercentage,
-                    filledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.9f, 0.85f, 0.2f)),
-                    unfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.3f, 0.3f, 0.3f)),
-                    margin = 0.15f,
-                    rotation = Rot4.North
-                });
-            }
-
-            Vector3 drawPos = parent.DrawPos;
-            drawPos.y += 0.04f;
-            float angle = (Time.realtimeSinceStartup * 50f) % 360f;
-            Matrix4x4 matrix = default(Matrix4x4);
-            matrix.SetTRS(
-                drawPos,
-                Quaternion.AngleAxis(angle, Vector3.up),
-                new Vector3(2f, 1f, 2f)
-            );
-            Graphics.DrawMesh(MeshPool.plane10, matrix, YAMP_Assets.ActiveOverlayMat, 0);
         }
 
         public override string CompInspectStringExtra()

@@ -8,7 +8,7 @@ using Verse.AI;
 namespace YAMP
 {
 
-    public class PodContainer
+    public class PodContainer : IExposable, IPodContainer
     {
         private ThingOwner<Thing> _container;
         private IThingHolder _owner;
@@ -22,6 +22,11 @@ namespace YAMP
         public PodContainer()
         {
             _container = new ThingOwner<Thing>();
+        }
+
+        public void ExposeData()
+        {
+            Scribe_Deep.Look(ref _container, "container", _owner);
         }
 
         public List<Thing> Get()

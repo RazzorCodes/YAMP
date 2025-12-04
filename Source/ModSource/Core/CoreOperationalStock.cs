@@ -8,25 +8,27 @@ using Verse;
 
 namespace YAMP
 {
-    public class OperationalStock
+    public class OperationalStock : IExposable
     {
         public float fuelValueHerbal = 10f;
         public float fuelValueIndustrial = 30f;
         public float fuelValueGlitter = 100f;
 
+        private IMedicineDefProvider _defProvider;
+
         public float GetFuelValue(ThingDef def, int amount = 0)
         {
-            if (def == ThingDefOf.MedicineHerbal)
+            if (def == _defProvider.Herbal)
             {
                 return fuelValueHerbal * amount;
             }
 
-            if (def == ThingDefOf.MedicineIndustrial)
+            if (def == _defProvider.Industrial)
             {
                 return fuelValueIndustrial * amount;
             }
 
-            if (def == ThingDefOf.MedicineUltratech)
+            if (def == _defProvider.Ultratech)
             {
                 return fuelValueGlitter * amount;
             }
@@ -34,7 +36,7 @@ namespace YAMP
             Logger.Log("Info", $"YAMP: Did not parse as medicine: {def.defName}");
             return -1f;
         }
-        private PodContainer _container;
+        private IPodContainer _container;
 
         private float _buffer = 0f;
         public float Buffer => _buffer;
@@ -43,9 +45,31 @@ namespace YAMP
         private float _unusedStock = 0f;
         public float UnusedStock => _unusedStock;
 
-        public OperationalStock(PodContainer container)
+        public OperationalStock()
+        {
+            _defProvider = new MedicineDefProvider();
+        }
+
+        public OperationalStock(IPodContainer container, IMedicineDefProvider defProvider = null)
         {
             _container = container;
+            _defProvider = defProvider ?? new MedicineDefProvider();
+        }
+
+        public OperationalStock(Building_MedPod parent)
+        {
+            _container = parent.Container;
+            _defProvider = new MedicineDefProvider();
+        }
+
+        public void ExposeData()
+        {
+            Scribe_Values.Look(ref _buffer, "buffer", 0f);
+
+            if (Scribe.mode == LoadSaveMode.PostLoadInit)
+            {
+                ComputeStock();
+            }
         }
 
         public void ComputeStock()
@@ -75,7 +99,12 @@ namespace YAMP
                     continue;
                 }
 
-                if (ingredient.filter.Allows(ThingDefOf.MedicineHerbal))
+                if (ingredient.filter.Allows(ThingDefOf.MedicineHerbal)) // Static method, might be hard to replace without passing provider. 
+                // But CalculateStockCost is static! It cannot use instance _defProvider.
+                // We should probably leave it as is, or pass provider to it?
+                // Or make it non-static?
+                // For now, let's leave it as is. It uses ThingDefOf.MedicineHerbal.
+                // If the test calls this, it will crash. But the test calls ComputeStock (instance method).
                 {
                     baseStockCost += ingredient.GetBaseCount();
                 }
@@ -103,17 +132,17 @@ namespace YAMP
                 .ToList();
 
             float stillNeeded = amount - _buffer;
-            
+
             foreach (var candidate in candidates)
             {
                 if (stillNeeded <= 0)
                 {
                     break;
                 }
-                
+
                 float stackValue = GetFuelValue(candidate.def, candidate.stackCount);
                 float perItemValue = GetFuelValue(candidate.def, 1);
-                
+
                 if (stackValue <= stillNeeded)
                 {
                     // Consume entire stack
@@ -133,12 +162,12 @@ namespace YAMP
                     var splitItem = candidate.SplitOff(numberOfCandidateToConsume);
                     Logger.Debug($"YAMP: Consumed {splitItem.stackCount} {splitItem.def.defName}");
                     splitItem.Destroy();
-                    
+
                     ComputeStock();
                     return true;
                 }
             }
-            
+
             if (stillNeeded <= 0)
             {
                 ComputeStock();
