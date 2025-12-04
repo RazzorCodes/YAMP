@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <CarryToMedPod>Carry {0} to MedPod</CarryToMedPod>
+  <CannotCarryToMedPod>Cannot carry {0} to MedPod</CannotCarryToMedPod>
+  <NoEmptyMedPod>No empty MedPod available</NoEmptyMedPod>
+</LanguageData>

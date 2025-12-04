@@ -12,4 +12,11 @@
     <driverClass>YAMP.JobDriver_EnterMedPod</driverClass>
     <reportString>entering med pod.</reportString>
   </JobDef>
+
+  <JobDef>
+    <defName>YAMP_CarryToMedPod</defName>
+    <driverClass>YAMP.JobDriver_CarryToMedPod</driverClass>
+    <reportString>carrying TargetA to med pod.</reportString>
+    <casualInterruptible>false</casualInterruptible>
+  </JobDef>
 </Defs>

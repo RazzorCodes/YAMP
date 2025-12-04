@@ -1,5 +1,6 @@
 param (
-    [switch]$testnow
+    [switch]$run,
+    [switch]$test
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,10 +20,12 @@ try {
     Write-Host "Build" -NoNewline
     Write-Host " [OK]" -ForegroundColor Green
 
-    Set-Location "$sourceDir"
-    dotnet test --logger 'console;verbosity=detailed'
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "Tests failed!"
+    if ($test) {
+        Set-Location "$sourceDir"
+        dotnet test --logger 'console;verbosity=detailed'
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Tests failed!"
+        }
     }
 
     Write-Host "Tests" -NoNewline
@@ -55,7 +58,7 @@ try {
 
     Write-Host "Deployment complete!"
 
-    if ($testnow) {
+    if ($run) {
         Write-Host "Killing running RimWorld instances..."
         Stop-Process -Name "RimWorldWin64" -ErrorAction SilentlyContinue
 
