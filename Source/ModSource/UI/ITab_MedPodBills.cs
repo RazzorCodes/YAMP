@@ -26,7 +26,7 @@ namespace YAMP
             {
                 selThingProperty = typeof(ITab).GetProperty("SelThing", BindingFlags.Public | BindingFlags.Instance);
             }
-            
+
             if (selThingProperty != null)
             {
                 try
@@ -40,14 +40,14 @@ namespace YAMP
                     Log.Warning($"[YAMP] Property SetValue failed: {ex.Message}");
                 }
             }
-            
+
             // If property setting failed, try to find and set the backing field
             // Search through all types in the inheritance hierarchy
             if (selThingBackingField == null)
             {
                 Type currentType = typeof(ITab);
                 Thing currentSelThing = SelThing; // Get current value to match against
-                
+
                 // Search through inheritance hierarchy
                 while (currentType != null && selThingBackingField == null)
                 {
@@ -75,14 +75,14 @@ namespace YAMP
                             }
                         }
                     }
-                    
+
                     if (selThingBackingField == null)
                     {
                         currentType = currentType.BaseType;
                     }
                 }
             }
-            
+
             if (selThingBackingField != null)
             {
                 try
@@ -126,15 +126,14 @@ namespace YAMP
                 pawnHealthTab = new ITab_Pawn_Health_Helper();
             }
             Vector2 baseSize = pawnHealthTab.GetSizePublic(); // Use RimWorld's native size
-            
+
             // Add extra width to accommodate mod buttons (like Dubs Mint Menus) and ensure close button is visible
             // RimWorld's default is typically around 630x510, we add extra width for mod compatibility
-            size = new Vector2(baseSize.x + 15f, baseSize.y);
+            size = new Vector2(baseSize.x, baseSize.y);
             labelKey = "TabBills";
         }
 
         protected Building_MedPod SelMedPod => (Building_MedPod)SelThing;
-
         protected override void FillTab()
         {
             // Resize window when tab is opened to ensure proper dimensions
@@ -144,9 +143,9 @@ namespace YAMP
             }
             Vector2 baseSize = pawnHealthTab.GetSizePublic();
             size = new Vector2(baseSize.x + 250f, baseSize.y);
-            
+
             Pawn patient = SelMedPod.Container.GetPawn();
-            
+
             if (patient == null)
             {
                 // No patient case - show simple message
@@ -166,7 +165,7 @@ namespace YAMP
 
                 // Store original selection
                 Thing originalSelectedThing = Find.Selector.SingleSelectedThing;
-                
+
                 try
                 {
                     // Temporarily change global selection to the pawn
@@ -176,10 +175,10 @@ namespace YAMP
                         Find.Selector.ClearSelection();
                         Find.Selector.Select(patient);
                     }
-                    
+
                     // Try to set SelThing on the helper instance
                     pawnHealthTab.SetSelThingPublic(patient);
-                    
+
                     // Delegate to RimWorld's FillTab - this will render the bills UI
                     pawnHealthTab.FillTabPublic();
                 }

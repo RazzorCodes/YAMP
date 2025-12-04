@@ -1,14 +1,11 @@
 using System.Collections.Generic;
 using System.Linq;
-using RimWorld;
-using UnityEngine;
 using Verse;
-using Verse.AI;
 
 namespace YAMP
 {
 
-    public class PodContainer : IExposable, IPodContainer
+    public class PodContainer : IExposable
     {
         private ThingOwner<Thing> _container;
         private IThingHolder _owner;

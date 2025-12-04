@@ -14,21 +14,19 @@ namespace YAMP
         public float fuelValueIndustrial = 30f;
         public float fuelValueGlitter = 100f;
 
-        private IMedicineDefProvider _defProvider;
-
         public float GetFuelValue(ThingDef def, int amount = 0)
         {
-            if (def == _defProvider.Herbal)
+            if (def == ThingDefOf.MedicineHerbal)
             {
                 return fuelValueHerbal * amount;
             }
 
-            if (def == _defProvider.Industrial)
+            if (def == ThingDefOf.MedicineIndustrial)
             {
                 return fuelValueIndustrial * amount;
             }
 
-            if (def == _defProvider.Ultratech)
+            if (def == ThingDefOf.MedicineUltratech)
             {
                 return fuelValueGlitter * amount;
             }
@@ -36,7 +34,7 @@ namespace YAMP
             Logger.Log("Info", $"YAMP: Did not parse as medicine: {def.defName}");
             return -1f;
         }
-        private IPodContainer _container;
+        private PodContainer _container;
 
         private float _buffer = 0f;
         public float Buffer => _buffer;
@@ -45,21 +43,9 @@ namespace YAMP
         private float _unusedStock = 0f;
         public float UnusedStock => _unusedStock;
 
-        public OperationalStock()
-        {
-            _defProvider = new MedicineDefProvider();
-        }
-
-        public OperationalStock(IPodContainer container, IMedicineDefProvider defProvider = null)
+        public OperationalStock(PodContainer container)
         {
             _container = container;
-            _defProvider = defProvider ?? new MedicineDefProvider();
-        }
-
-        public OperationalStock(Building_MedPod parent)
-        {
-            _container = parent.Container;
-            _defProvider = new MedicineDefProvider();
         }
 
         public void ExposeData()

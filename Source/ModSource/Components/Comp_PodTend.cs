@@ -1,5 +1,6 @@
 using RimWorld;
 using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 using UnityEngine;
 using Verse;
@@ -23,8 +24,13 @@ namespace YAMP
 
     public class Comp_PodTend : ThingComp
     {
+        private readonly int _progressUpdateInterval = 30;
+        private readonly int _tendActivityWork = 120;
+
         public CompProp_PodTend Props => (CompProp_PodTend)props;
         YAMP.Activities.IActivity _currentActivity = null;
+
+        public float Progress => _currentActivity?.ProgressPercentage ?? 0f;
 
         public override void PostExposeData()
         {
@@ -51,7 +57,7 @@ namespace YAMP
             }
 
             // Update activity progress on interval
-            if (_currentActivity != null && parent.IsHashIntervalTick(100))
+            if (_currentActivity != null && parent.IsHashIntervalTick(_progressUpdateInterval))
             {
                 _currentActivity.Update(Verse.GenTicks.TicksGame);
                 return;
@@ -87,7 +93,7 @@ namespace YAMP
                     speedMultiplier: 1f
                 );
 
-                _currentActivity.Start(120); // 2 seconds (120 ticks)
+                _currentActivity.Start(_tendActivityWork); // 2 seconds (120 ticks)
                 Logger.Debug($"Started tend activity");
             }
         }
@@ -107,26 +113,6 @@ namespace YAMP
             }
 
             return "No pending tend";
-        }
-
-        public override void PostDraw()
-        {
-            base.PostDraw();
-            Logger.Debug($"_currentActivity: {_currentActivity?.InProgress} {_currentActivity?.ProgressPercentage}");
-
-            if (_currentActivity?.InProgress == true)
-            {
-                GenDraw.DrawFillableBar(new GenDraw.FillableBarRequest
-                {
-                    center = parent.DrawPos + Vector3.up * 0.1f + Vector3.forward * 0.25f,
-                    size = new Vector2(0.8f, 0.14f),
-                    fillPercent = _currentActivity.ProgressPercentage,
-                    filledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.2f, 0.8f, 0.2f)), // Green for tend
-                    unfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.3f, 0.3f, 0.3f)),
-                    margin = 0.15f,
-                    rotation = this.parent.Rotation
-                });
-            }
         }
     }
 }

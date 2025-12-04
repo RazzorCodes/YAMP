@@ -11,6 +11,7 @@
       <drawSize>(2,2)</drawSize>
     </graphicData>
     <size>(2,2)</size>
+    <drawerType>MapMeshAndRealTime</drawerType>  <!-- Add this for PostDraw to work -->
     <tickerType>Normal</tickerType>
     <rotatable>true</rotatable>
     <hasInteractionCell>true</hasInteractionCell>
@@ -38,6 +39,7 @@
     <comps>
       <li Class="YAMP.CompProp_PodTend" />
       <li Class="YAMP.CompProp_PodOperate" />
+      <li Class="YAMP.CompProp_ProgressBar" />
       <li Class="CompProperties_Power">
         <compClass>CompPowerTrader</compClass>
         <basePowerConsumption>1000</basePowerConsumption>
