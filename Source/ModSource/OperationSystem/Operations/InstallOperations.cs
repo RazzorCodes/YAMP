@@ -92,6 +92,16 @@ namespace YAMP.OperationSystem
                         HealthHelper.RemoveHediff(patient, missingHediff);
                     }
 
+                    // Remove negative hediffs from the part
+                    var hediffsToRemove = patient.health.hediffSet.hediffs
+                        .Where(h => h.Part == bodyPart)
+                        .ToList();
+                    foreach (var hediff in hediffsToRemove)
+                    {
+                        HealthHelper.RemoveHediff(patient, hediff);
+                    }
+
+
                     // Apply new hediff
                     var hediffDef = recipe?.addsHediff;
                     if (hediffDef != null)

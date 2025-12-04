@@ -7,4 +7,14 @@
     <li>1.6</li>
   </supportedVersions>
   <description>Introduces a Med Pod that uses medicine as fuel to perform advanced medical operations.</description>
+  <modClass>YAMP.YAMPMod</modClass>
+  <modDependencies>
+    <li>
+      <packageId>ludeon.rimworld</packageId>
+      <displayName>Core</displayName>
+    </li>
+  </modDependencies>
+  <loadAfter>
+    <li>ludeon.rimworld</li>
+  </loadAfter>
 </ModMetaData>

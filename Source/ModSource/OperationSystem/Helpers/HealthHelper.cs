@@ -135,7 +135,7 @@ namespace YAMP.OperationSystem.RimWorld
             var part = bodyPart as BodyPartRecord;
 
             if (r == null || p == null)
-                return 1f;
+                return 0f;
 
             // Use vanilla calculation if available
             // Default to high success for simple operations
