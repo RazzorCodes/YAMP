@@ -12,14 +12,23 @@ try {
     Write-Host "Building $modName..."
     Set-Location "$sourceDir\Source"
     dotnet build -c Release
-    dotnet test --logger "console;verbosity=detailed"
-
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Build failed!"
     }
 
-    Write-Host "Deploying to $destDir..."
+    Write-Host "Build" -NoNewline
+    Write-Host " [OK]" -ForegroundColor Green
 
+    Set-Location "$sourceDir"
+    dotnet test --logger 'console;verbosity=detailed'
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "Tests failed!"
+    }
+
+    Write-Host "Tests" -NoNewline
+    Write-Host " [OK]" -ForegroundColor Green
+
+    Write-Host "Deploying to $destDir..."
     if (-not (Test-Path $destDir)) {
         New-Item -ItemType Directory -Path $destDir | Out-Null
     }
@@ -28,8 +37,6 @@ try {
     $folders = @("About", "Defs", "Textures", "Assemblies")
     foreach ($folder in $folders) {
         $src = "$sourceDir\Mod\$folder"
-        $dst = "$destDir\$folder"
-    
         try {
             if (Test-Path $src) {
                 Write-Host "Copying $folder..." -NoNewline
