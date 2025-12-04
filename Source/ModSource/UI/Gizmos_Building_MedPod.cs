@@ -2,35 +2,18 @@ using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using Verse;
+using Verse.AI;
 
 namespace YAMP
 {
     public partial class Building_MedPod
     {
-        public bool CanOpen => Container.GetPawn() != null;
-        public int OpenTicks => 10;
-        public void Open()
-        {
-            var pawn = Container.GetPawn();
-            if (pawn != null)
-            {
-                Container.GetDirectlyHeldThings().TryDrop(
-                        pawn,
-                        this.InteractionCell,
-                        this.Map,
-                        ThingPlaceMode.Near,
-                        out _
-                    );
-            }
-        }
-
         public override IEnumerable<Gizmo> GetGizmos()
         {
             foreach (Gizmo gizmo in base.GetGizmos())
                 yield return gizmo;
 
             yield return this.EjectProducts();
-            yield return this.SelectPatient();
             yield return this.FuelGizmo();
 
             foreach (Gizmo debugGizmo in GetDebugGizmos())
@@ -41,45 +24,31 @@ namespace YAMP
         {
             return new Command_Action
             {
-                defaultLabel = "Eject Products",
-                defaultDesc = "Eject the products from the pod.",
+                defaultLabel = "Eject Contents",
+                defaultDesc = "Eject everything from the internal storage (medicine/fuel).",
                 icon = TexCommand.ForbidOff,
                 action = () =>
                 {
-                    var products = Container.GetDirectlyHeldThings().Where(t => !(t is Pawn) && !t.def.IsMedicine).ToList();
-                    foreach (var product in products)
-                    {
-                        Container.GetDirectlyHeldThings().TryDrop(
-                                product,
-                                this.InteractionCell,
-                                this.Map,
-                                ThingPlaceMode.Near,
-                                out _
-                            );
-                    }
+                    // Eject everything from container (medicine)
+                    Container.GetDirectlyHeldThings().TryDropAll(InteractionCell, Map, ThingPlaceMode.Near);
                 }
             };
         }
 
-        private Gizmo SelectPatient()
+        public void DischargePatient(Pawn pawn)
         {
-            Pawn pawn = Container.GetPawn();
-            return new Command_Action
+            if (pawn == null) return;
+
+            // For a bed, discharging means making them stand up / leave
+            // If they are sleeping, wake them up
+            if (pawn.CurJobDef == JobDefOf.LayDown)
             {
-                defaultLabel = "Select Patient",
-                defaultDesc = "Select the pawn inside the med pod.",
-                icon = TexCommand.Draft,
-                action = () =>
-                {
-                    if (pawn != null)
-                    {
-                        Find.Selector.ClearSelection();
-                        Find.Selector.Select(pawn);
-                        // Jump camera to the pawn for better UX
-                        Find.CameraDriver.JumpToCurrentMapLoc(pawn.Position);
-                    }
-                }
-            };
+                pawn.jobs.EndCurrentJob(JobCondition.InterruptForced);
+            }
+
+            // If we want to force them out of the bed slot
+            pawn.Position = this.InteractionCell; // Move to interaction cell
+            pawn.Notify_Teleported();
         }
 
         private Gizmo FuelGizmo()

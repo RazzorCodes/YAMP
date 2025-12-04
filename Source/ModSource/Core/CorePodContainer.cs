@@ -5,7 +5,7 @@ using Verse;
 namespace YAMP
 {
 
-    public class PodContainer : IExposable
+    public class PodContainer : IExposable, IThingHolder
     {
         private ThingOwner<Thing> _container;
         private IThingHolder _owner;
@@ -32,16 +32,20 @@ namespace YAMP
             return [.. _container];
         }
 
-        public Pawn GetPawn()
-        {
-            _container ??= new ThingOwner<Thing>(_owner);
-            return _container.OfType<Pawn>().FirstOrDefault();
-        }
+        // GetPawn removed - use Building_Bed.GetCurOccupant(0)
 
         public ThingOwner GetDirectlyHeldThings()
         {
             _container ??= new ThingOwner<Thing>(_owner);
             return _container;
+        }
+
+        // IThingHolder interface
+        public IThingHolder ParentHolder => _owner;
+
+        public void GetChildHolders(List<IThingHolder> outChildren)
+        {
+            // Container doesn't have nested holders
         }
     }
 }

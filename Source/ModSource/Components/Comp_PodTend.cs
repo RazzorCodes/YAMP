@@ -68,7 +68,7 @@ namespace YAMP
 
         public void CheckTend()
         {
-            Pawn patient = ((Building_MedPod)parent).Container.GetPawn();
+            Pawn patient = ((Building_MedPod)parent).GetCurOccupant(0);
             if (patient == null)
             {
                 // No patient; if there was an activity, stop it

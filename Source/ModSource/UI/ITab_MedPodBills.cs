@@ -144,7 +144,7 @@ namespace YAMP
             Vector2 baseSize = pawnHealthTab.GetSizePublic();
             size = new Vector2(baseSize.x + 250f, baseSize.y);
 
-            Pawn patient = SelMedPod.Container.GetPawn();
+            Pawn patient = SelMedPod.GetCurOccupant(0);
 
             if (patient == null)
             {

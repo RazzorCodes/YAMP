@@ -7,16 +7,5 @@
     <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
   </JobDef>
   
-  <JobDef>
-    <defName>YAMP_EnterMedPod</defName>
-    <driverClass>YAMP.JobDriver_EnterMedPod</driverClass>
-    <reportString>entering med pod.</reportString>
-  </JobDef>
 
-  <JobDef>
-    <defName>YAMP_CarryToMedPod</defName>
-    <driverClass>YAMP.JobDriver_CarryToMedPod</driverClass>
-    <reportString>carrying TargetB to med pod.</reportString>
-    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
-  </JobDef>
 </Defs>

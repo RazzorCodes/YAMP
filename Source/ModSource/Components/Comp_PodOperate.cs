@@ -73,7 +73,7 @@ namespace YAMP
             }
 
             // Stop activity if patient leaves
-            if (_currentActivity != null && PodConatiner.GetPawn() == null)
+            if (_currentActivity != null && ((Building_MedPod)parent).GetCurOccupant(0) == null)
             {
                 _currentActivity.Stop();
                 _currentActivity = null;
@@ -151,38 +151,7 @@ namespace YAMP
             Logger.Debug($"Started operation activity: {_currentBill.recipe.label}");
         }
 
-        public override IEnumerable<FloatMenuOption> CompFloatMenuOptions(Pawn selPawn)
-        {
-            if (!selPawn.CanReach(parent, PathEndMode.InteractionCell, Danger.Deadly))
-            {
-                yield return new FloatMenuOption(
-                    "CannotEnter".Translate() + ": " + "NoPath".Translate().CapitalizeFirst(),
-                    null
-                );
-                yield break;
-            }
-
-            if (PodConatiner.GetPawn() != null)
-            {
-                yield return new FloatMenuOption(
-                    "CannotEnter".Translate() + ": " + "Full".Translate().CapitalizeFirst(),
-                    null
-                );
-                yield break;
-            }
-
-            yield return new FloatMenuOption(
-                "Enter Med Pod",
-                () =>
-                {
-                    Job job = JobMaker.MakeJob(
-                        DefDatabase<JobDef>.GetNamed("YAMP_EnterMedPod"),
-                        parent
-                    );
-                    selPawn.jobs.TryTakeOrderedJob(job, JobTag.Misc);
-                }
-            );
-        }
+        // Removed CompFloatMenuOptions to rely on vanilla bed behavior
 
         private Bill_Medical GetSurgeryBill()
         {
@@ -210,9 +179,10 @@ namespace YAMP
         {
             // Pawn info: todo: move to building
             var sb = new System.Text.StringBuilder();
+            var patient = ((Building_MedPod)parent).GetCurOccupant(0);
 
-            sb.AppendLine($"Patient: {PodConatiner.GetPawn()?.Name?.ToStringShort}");
-            if (PodConatiner.GetPawn() != null)
+            sb.AppendLine($"Patient: {patient?.Name?.ToStringShort}");
+            if (patient != null)
             {
                 if (_currentActivity != null)
                 {

@@ -78,7 +78,7 @@ namespace YAMP.Activities
                 OperationName = handler.Name,
                 Arguments = new object[]
                 {
-                    facility.Container.GetPawn(),  // 0: Patient (Pawn)
+                    facility.GetCurOccupant(0),  // 0: Patient (Pawn)
                     bill.Part,                      // 1: BodyPart (BodyPartRecord)
                     bill.recipe,                    // 2: Recipe (RecipeDef)
                     facility,                       // 3: Facility (ThingWithComps)

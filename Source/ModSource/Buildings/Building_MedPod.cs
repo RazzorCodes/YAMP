@@ -5,7 +5,7 @@ using Verse;
 
 namespace YAMP
 {
-    public partial class Building_MedPod : Building, IThingHolder, IOpenable, IStoreSettingsParent
+    public partial class Building_MedPod : Building_Bed, IThingHolder, IStoreSettingsParent
     {
         private PodContainer _container;
         public PodContainer Container => _container ??= new PodContainer(this);
@@ -16,7 +16,7 @@ namespace YAMP
         private StorageSettings _storageSettings;
         public float targetFuelLevel = 200f;
 
-        public BillStack BillStack => Container.GetPawn()?.health.surgeryBills;
+        public BillStack BillStack => GetCurOccupant(0)?.health.surgeryBills;
 
         // IStoreSettingsParent implementation
         public StorageSettings GetStoreSettings() => _storageSettings;
@@ -60,6 +60,17 @@ namespace YAMP
 
         public void GetChildHolders(List<IThingHolder> outChildren)
         {
+            // Iterate comps to find any that are IThingHolder
+            if (AllComps != null)
+            {
+                for (int i = 0; i < AllComps.Count; i++)
+                {
+                    if (AllComps[i] is IThingHolder holder)
+                    {
+                        outChildren.Add(holder);
+                    }
+                }
+            }
         }
 
         public ThingOwner GetDirectlyHeldThings()

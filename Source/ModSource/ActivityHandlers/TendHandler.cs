@@ -34,7 +34,7 @@ namespace YAMP.Activities
                 return;
             }
 
-            var patient = facility.Container.GetPawn();
+            var patient = facility.GetCurOccupant(0);
             if (patient == null || patient.Dead)
             {
                 Logger.Debug($"TendHandler: Patient is null or dead");
@@ -69,7 +69,7 @@ namespace YAMP.Activities
                 return false;
             }
 
-            var patient = facility.Container?.GetPawn();
+            var patient = facility.GetCurOccupant(0);
 
             return
                 patient != null &&

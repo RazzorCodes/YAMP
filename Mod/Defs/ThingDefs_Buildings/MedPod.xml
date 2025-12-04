@@ -23,6 +23,7 @@
     <designationCategory>Misc</designationCategory>
     <inspectorTabs>
       <li>YAMP.ITab_MedPodBills</li>
+      <li>YAMP.ITab_MedPodStorage</li>
     </inspectorTabs>
     <statBases>
       <MaxHitPoints>350</MaxHitPoints>
@@ -45,9 +46,25 @@
         <basePowerConsumption>1000</basePowerConsumption>
       </li>
       <li Class="CompProperties_Flickable" />
+      <li Class="CompProperties_AssignableToPawn">
+        <drawAssignmentOverlay>false</drawAssignmentOverlay>
+        <compClass>CompAssignableToPawn_Bed</compClass>
+      </li>
     </comps>
     <building>
       <destroySound>BuildingDestroyed_Metal_Small</destroySound>
+      <bed_humanlike>true</bed_humanlike>
+      <bed_showSleeperBody>true</bed_showSleeperBody>
+      <bed_healPerDay>0</bed_healPerDay>
+      <bed_defaultMedical>true</bed_defaultMedical>
+      <bed_maxBodySize>2.0</bed_maxBodySize>
+      <defaultStorageSettings>
+        <filter>
+          <categories>
+            <li>Medicine</li>
+          </categories>
+        </filter>
+      </defaultStorageSettings>
     </building>
   </ThingDef>
 </Defs>

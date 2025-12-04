@@ -29,7 +29,7 @@ namespace YAMP
             }
 
             // Check if we need ingredients for operation
-            Pawn patient = container.GetPawn();
+            Pawn patient = pod.GetCurOccupant(0);
             if (patient != null)
             {
                 Bill_Medical bill = GetFirstSurgeryBill(pod);
@@ -66,7 +66,7 @@ namespace YAMP
                 }
             }
 
-            Pawn patient = podContainer.GetPawn();
+            Pawn patient = pod.GetCurOccupant(0);
             if (patient != null)
             {
                 Bill_Medical bill = GetFirstSurgeryBill(pod);
