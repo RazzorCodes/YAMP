@@ -2,21 +2,24 @@ using System;
 using System.Collections.Generic;
 using RimWorld;
 using Verse;
+using YAMP.OperationSystem.Core;
 
 namespace YAMP.OperationSystem
 {
     /// <summary>
-    /// Central registry mapping vanilla recipe workers to custom operation implementations
+    /// Central registry mapping vanilla recipe workers to custom operation implementations.
+    /// Uses new Core.IOperation interface with delegate-based hooks.
     /// </summary>
     [StaticConstructorOnStartup]
     public static class OperationRegistry
     {
-        private static Dictionary<Type, IOperation> _handlers = new Dictionary<Type, IOperation>();
+        private static Dictionary<Type, Core.IOperation> _handlers = new Dictionary<Type, Core.IOperation>();
+        private static Core.IOperationExecutor _executor = new OperationExecutor();
 
         static OperationRegistry()
         {
             RegisterDefaults();
-            Logger.Log("YAMP", $"Operation registry initialized");
+            Logger.Log("YAMP", $"Operation registry initialized with {_handlers.Count} handlers");
         }
 
         private static void RegisterDefaults()
@@ -49,13 +52,13 @@ namespace YAMP.OperationSystem
             Register(typeof(Recipe_Surgery), new AnesthetizeOperation());
         }
 
-        public static void Register(Type recipeWorkerType, IOperation handler)
+        public static void Register(Type recipeWorkerType, Core.IOperation handler)
         {
             _handlers[recipeWorkerType] = handler;
-            Logger.Log("YAMP", $"Registered handler for: {recipeWorkerType.Name}");
+            Logger.Debug($"Registered handler for: {recipeWorkerType.Name}");
         }
 
-        public static IOperation GetHandler(Type recipeWorkerType)
+        public static Core.IOperation GetHandler(Type recipeWorkerType)
         {
             // Exact match
             if (_handlers.TryGetValue(recipeWorkerType, out var handler))
@@ -71,6 +74,14 @@ namespace YAMP.OperationSystem
             }
 
             return null; // Use vanilla if no handler
+        }
+
+        /// <summary>
+        /// Execute an operation through the pipeline.
+        /// </summary>
+        public static OperationResult ExecuteOperation(Core.IOperation operation, OperationContext context)
+        {
+            return _executor.Execute(operation, context);
         }
     }
 }

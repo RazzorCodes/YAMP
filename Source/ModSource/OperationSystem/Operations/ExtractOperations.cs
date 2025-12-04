@@ -1,5 +1,9 @@
+using System;
+using System.Collections.Generic;
 using RimWorld;
 using Verse;
+using YAMP.OperationSystem.Core;
+using YAMP.OperationSystem.RimWorld;
 
 namespace YAMP.OperationSystem
 {
@@ -8,80 +12,218 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Extract hemogen from pawn
     /// </summary>
-    public class ExtractHemogenOperation : BaseOperation
+    public class ExtractHemogenOperation : Core.IOperation
     {
-        public override string Name => "Extract Hemogen";
+        public string Name => "Extract Hemogen";
         public float hemogenLossAmount = 0.45f;
 
-        public bool CanExtract(Pawn patient)
+        public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
         {
-            // Check if pawn has hemogen gene
-            return patient.genes?.GetGene(GeneDefOf.Hemogenic) != null;
-        }
+            ("ValidatePatient", Hooks.ValidatePatient),
+            ("ValidateFlesh", Hooks.ValidateFleshPatient),
+            ("CheckHemogenGene", CheckHemogenGene),
+            ("CheckStock", CheckStock)
+        };
 
-        public float GetBaseSuccessChance(Pawn patient)
+        public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>
         {
-            return 1f; // Uses vanilla surgery success
-        }
+            ("StoreProducts", StoreProducts)
+        };
 
-        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
         {
-            // Hemogen extraction creates hemogen pack as product
-            var hemogenPack = ThingMaker.MakeThing(ThingDefOf.HemogenPack);
-            result.Products.Add(hemogenPack);
+            ("Log", Hooks.LogResult)
+        };
 
-            if (context.Facility != null)
+        // ==================== OPERATION-SPECIFIC PREHOOKS ====================
+
+        private bool CheckHemogenGene(ref OperationContext context)
+        {
+            var patient = context.GetArgument<Pawn>(0);
+            if (patient?.genes?.GetGene(GeneDefOf.Hemogenic) == null)
             {
-                GenPlace.TryPlaceThing(
-                    hemogenPack,
-                    context.Facility.Position,
-                    context.Facility.Map,
-                    ThingPlaceMode.Near);
+                context.SetState("FailureReason", "Patient does not have hemogenic gene");
+                return false;
+            }
+            return true;
+        }
+
+        private bool CheckStock(ref OperationContext context)
+        {
+            var facility = context.GetArgument<object>(3);
+            var recipe = context.GetArgument<object>(2);
+
+            if (!FacilityHelper.HasRequiredStock(facility, recipe))
+            {
+                context.SetState("FailureReason", "AwaitingMaterials");
+                return false;
             }
 
-            context.Patient.health.AddHediff(HediffDefOf.BloodLoss).Severity = hemogenLossAmount;
-
-            Logger.Log("YAMP", $"Successfully extracted hemogen from {context.Patient.LabelShort}");
+            return true;
         }
 
-        protected override void HandleFailure(OperationContext context, OperationResult result)
+        // ==================== EXECUTE ====================
+
+        public bool Execute(ref OperationContext context, ref OperationResult result)
         {
-            result.FailureReason = "Hemogen extraction failed";
-            // Light damage on failure
-            context.Patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 1, 0, -1, null, null));
+            try
+            {
+                var patient = context.GetArgument<Pawn>(0);
+                var recipe = context.GetArgument<RecipeDef>(2);
+                var facility = context.GetArgument<ThingWithComps>(3);
+
+                // Hemogen extraction creates hemogen pack as product
+                var hemogenPack = ThingMaker.MakeThing(ThingDefOf.HemogenPack);
+                result.Products.Add(hemogenPack);
+
+                // Apply blood loss
+                var bloodLoss = HealthHelper.AddHediff(patient, HediffDefOf.BloodLoss, null) as Hediff;
+                if (bloodLoss != null)
+                {
+                    bloodLoss.Severity = hemogenLossAmount;
+                }
+
+                // Consume stock
+                FacilityHelper.ConsumeStock(facility, recipe);
+
+                result.Success = true;
+                Logger.Log("YAMP", $"Successfully extracted hemogen from {patient.LabelShort}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = ex;
+                result.FailureReason = $"Exception: {ex.Message}";
+                Logger.Log("YAMP", $"ExtractHemogenOperation failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ==================== OPERATION-SPECIFIC POSTHOOKS ====================
+
+        private bool StoreProducts(ref OperationContext context, ref OperationResult result)
+        {
+            var facility = context.GetArgument<ThingWithComps>(3);
+
+            if (result.Products != null && result.Products.Count > 0)
+            {
+                if (FacilityHelper.CanStoreInContainer(facility, result.Products.ToArray()))
+                {
+                    FacilityHelper.StoreInContainer(facility, result.Products.ToArray());
+                }
+                else
+                {
+                    FacilityHelper.DumpNearFacility(facility, result.Products.ToArray());
+                }
+            }
+
+            return true;
         }
     }
 
     /// <summary>
     /// Extract ovum from female pawn
     /// </summary>
-    public class ExtractOvumOperation : BaseOperation
+    public class ExtractOvumOperation : Core.IOperation
     {
-        public override string Name => "Extract Ovum";
+        public string Name => "Extract Ovum";
 
-        public bool CanExtract(Pawn patient)
+        public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
         {
-            return patient.gender == Gender.Female && patient.ageTracker.AgeBiologicalYears >= 18;
-        }
+            ("ValidatePatient", Hooks.ValidatePatient),
+            ("ValidateFemale", ValidateFemale),
+            ("CheckStock", CheckStock)
+        };
 
-        public float GetBaseSuccessChance(Pawn patient)
+        public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>
         {
-            return 1f;
-        }
+            ("StoreProducts", StoreProducts)
+        };
 
-        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
         {
-            // Ovum extraction creates ovum as product - using HumanOvum ThingDef
-            var ovum = ThingMaker.MakeThing(ThingDefOf.HumanOvum) as HumanOvum;
-            ovum.TryGetComp<CompHasPawnSources>().AddSource(context.Patient);
-            result.Products.Add(ovum);
+            ("Log", Hooks.LogResult)
+        };
 
-            if (context.Facility != null)
+        // ==================== OPERATION-SPECIFIC PREHOOKS ====================
+
+        private bool ValidateFemale(ref OperationContext context)
+        {
+            var patient = context.GetArgument<Pawn>(0);
+            if (patient?.gender != Gender.Female || patient.ageTracker.AgeBiologicalYears < 18)
             {
-                GenPlace.TryPlaceThing(ovum, context.Facility.Position, context.Facility.Map, ThingPlaceMode.Near);
+                context.SetState("FailureReason", "Patient must be adult female");
+                return false;
+            }
+            return true;
+        }
+
+        private bool CheckStock(ref OperationContext context)
+        {
+            var facility = context.GetArgument<object>(3);
+            var recipe = context.GetArgument<object>(2);
+
+            if (!FacilityHelper.HasRequiredStock(facility, recipe))
+            {
+                context.SetState("FailureReason", "AwaitingMaterials");
+                return false;
             }
 
-            Logger.Log("YAMP", $"Successfully extracted ovum from {context.Patient.LabelShort}");
+            return true;
+        }
+
+        // ==================== EXECUTE ====================
+
+        public bool Execute(ref OperationContext context, ref OperationResult result)
+        {
+            try
+            {
+                var patient = context.GetArgument<Pawn>(0);
+                var recipe = context.GetArgument<RecipeDef>(2);
+                var facility = context.GetArgument<ThingWithComps>(3);
+
+                // Ovum extraction creates ovum as product
+                var ovum = ThingMaker.MakeThing(ThingDefOf.HumanOvum) as HumanOvum;
+                ovum?.TryGetComp<CompHasPawnSources>()?.AddSource(patient);
+                result.Products.Add(ovum);
+
+                // Consume stock
+                FacilityHelper.ConsumeStock(facility, recipe);
+
+                result.Success = true;
+                Logger.Log("YAMP", $"Successfully extracted ovum from {patient.LabelShort}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = ex;
+                result.FailureReason = $"Exception: {ex.Message}";
+                Logger.Log("YAMP", $"ExtractOvumOperation failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        // ==================== OPERATION-SPECIFIC POSTHOOKS ====================
+
+        private bool StoreProducts(ref OperationContext context, ref OperationResult result)
+        {
+            var facility = context.GetArgument<ThingWithComps>(3);
+
+            if (result.Products != null && result.Products.Count > 0)
+            {
+                if (FacilityHelper.CanStoreInContainer(facility, result.Products.ToArray()))
+                {
+                    FacilityHelper.StoreInContainer(facility, result.Products.ToArray());
+                }
+                else
+                {
+                    FacilityHelper.DumpNearFacility(facility, result.Products.ToArray());
+                }
+            }
+
+            return true;
         }
     }
 }

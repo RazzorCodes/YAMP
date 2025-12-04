@@ -1,59 +1,125 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using RimWorld;
 using Verse;
+using YAMP.OperationSystem.Core;
+using YAMP.OperationSystem.RimWorld;
 
 namespace YAMP.OperationSystem
 {
+    // ==================== ADMINISTER OPERATIONS ====================
+
     /// <summary>
     /// Administer ingestible items (drugs, anesthesia, etc.) - applies recipe effects
     /// </summary>
-    public class AdministerIngestibleOperation : BaseOperation
+    public class AdministerIngestibleOperation : Core.IOperation
     {
-        public override string Name => "Administer Ingestible";
+        public string Name => "Administer Ingestible";
 
-        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
         {
-            var item = context.Ingredients?.FirstOrDefault();
-            if (item?.def?.ingestible?.outcomeDoers != null)
-            {
-                // Apply ingestible effects
-                item.def.ingestible.outcomeDoers?.ForEach(doer =>
-                    doer.DoIngestionOutcome(context.Patient, item, 1));
+            ("ValidatePatient", Hooks.ValidatePatient)
+        };
 
-                Logger.Log("YAMP", $"Administered {item.Label} to {context.Patient.LabelShort}");
-            }
-            else
-            {
-                result.FailureReason = "Item is not ingestible";
-                Logger.Log("[YAMP] AdministerIngestibleOperation: ", $"Item {item?.Label} is not ingestible");
-            }
-        }
+        public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>();
 
-        protected override void HandleFailure(OperationContext context, OperationResult result)
+        public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
         {
-            result.FailureReason = "Failed to properly administer item";
-            // No physical damage on administration failure
+            ("Log", Hooks.LogResult)
+        };
+
+        // ==================== EXECUTE ====================
+
+        public bool Execute(ref OperationContext context, ref OperationResult result)
+        {
+            try
+            {
+                var patient = context.GetArgument<Pawn>(0);
+                var ingredients = context.GetArgument<System.Collections.Generic.List<Thing>>(4);
+
+                var item = ingredients?.FirstOrDefault();
+                if (item?.def?.ingestible?.outcomeDoers != null)
+                {
+                    // Apply ingestible effects
+                    item.def.ingestible.outcomeDoers?.ForEach(doer =>
+                        doer.DoIngestionOutcome(patient, item, 1));
+
+                    result.Success = true;
+                    Logger.Log("YAMP", $"Administered {item.Label} to {patient.LabelShort}");
+                }
+                else
+                {
+                    result.Success = false;
+                    result.FailureReason = "Item is not ingestible";
+                    Logger.Log("YAMP", $"AdministerIngestibleOperation: Item {item?.Label} is not ingestible");
+                }
+
+                return result.Success;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = ex;
+                result.FailureReason = $"Exception: {ex.Message}";
+                Logger.Log("YAMP", $"AdministerIngestibleOperation failed: {ex.Message}");
+                return false;
+            }
         }
     }
 
     /// <summary>
     /// Administer usable items
     /// </summary>
-    public class AdministerUsableItemOperation : BaseOperation
+    public class AdministerUsableItemOperation : Core.IOperation
     {
-        public override string Name => "Administer Usable Item";
-        public ThingDef ItemDef => null;
-        public int RequiredCount => 1;
+        public string Name => "Administer Usable Item";
 
-        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
         {
-            // Similar to ingestible but for usable items
-            CompUsable item = null;
-            context.Ingredients?.FirstOrDefault().TryGetComp<CompUsable>(out item);
-            if (item != null)
+            ("ValidatePatient", Hooks.ValidatePatient)
+        };
+
+        public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>();
+
+        public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
+        {
+            ("Log", Hooks.LogResult)
+        };
+
+        // ==================== EXECUTE ====================
+
+        public bool Execute(ref OperationContext context, ref OperationResult result)
+        {
+            try
             {
-                item.UsedBy(context.Patient);
-                Logger.Log("YAMP", $"Administered {item.parent.Label} to {context.Patient.LabelShort}");
+                var patient = context.GetArgument<Pawn>(0);
+                var ingredients = context.GetArgument<System.Collections.Generic.List<Thing>>(4);
+
+                CompUsable item = null;
+                ingredients?.FirstOrDefault().TryGetComp(out item);
+
+                if (item != null)
+                {
+                    item.UsedBy(patient);
+                    result.Success = true;
+                    Logger.Log("YAMP", $"Administered {item.parent.Label} to {patient.LabelShort}");
+                }
+                else
+                {
+                    result.Success = false;
+                    result.FailureReason = "Item is not usable";
+                }
+
+                return result.Success;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = ex;
+                result.FailureReason = $"Exception: {ex.Message}";
+                Logger.Log("YAMP", $"AdministerUsableItemOperation failed: {ex.Message}");
+                return false;
             }
         }
     }
@@ -61,20 +127,59 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Blood transfusion - removes blood loss hediff
     /// </summary>
-    public class BloodTransfusionOperation : BaseOperation
+    public class BloodTransfusionOperation : Core.IOperation
     {
-        public override string Name => "Blood Transfusion";
-        public ThingDef ItemDef => ThingDefOf.MedicineIndustrial;
-        public int RequiredCount => 1;
+        public string Name => "Blood Transfusion";
 
-        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
         {
-            // Remove blood loss
-            var bloodLossHediff = context.Patient.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
-            if (bloodLossHediff != null)
+            ("ValidatePatient", Hooks.ValidatePatient)
+        };
+
+        public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>();
+
+        public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
+        {
+            ("Log", Hooks.LogResult)
+        };
+
+        // ==================== EXECUTE ====================
+
+        public bool Execute(ref OperationContext context, ref OperationResult result)
+        {
+            try
             {
-                context.Patient.health.RemoveHediff(bloodLossHediff);
-                Logger.Log("YAMP", $"Blood transfusion restored {context.Patient.LabelShort}");
+                var patient = context.GetArgument<Pawn>(0);
+                var recipe = context.GetArgument<RecipeDef>(2);
+                var facility = context.GetArgument<ThingWithComps>(3);
+
+                // Remove blood loss
+                var bloodLossHediff = patient.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
+                if (bloodLossHediff != null)
+                {
+                    HealthHelper.RemoveHediff(patient, bloodLossHediff);
+
+                    // Consume stock
+                    FacilityHelper.ConsumeStock(facility, recipe);
+
+                    result.Success = true;
+                    Logger.Log("YAMP", $"Blood transfusion restored {patient.LabelShort}");
+                }
+                else
+                {
+                    result.Success = false;
+                    result.FailureReason = "No blood loss to treat";
+                }
+
+                return result.Success;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = ex;
+                result.FailureReason = $"Exception: {ex.Message}";
+                Logger.Log("YAMP", $"BloodTransfusionOperation failed: {ex.Message}");
+                return false;
             }
         }
     }
@@ -82,76 +187,159 @@ namespace YAMP.OperationSystem
     /// <summary>
     /// Implant embryo - makes pawn pregnant
     /// </summary>
-    public class ImplantEmbryoOperation : BaseOperation
+    public class ImplantEmbryoOperation : Core.IOperation
     {
-        public override string Name => "Implant Embryo";
-        public ThingDef ItemDef => null; // Uses embryo from ingredients
-        public int RequiredCount => 1;
+        public string Name => "Implant Embryo";
 
-        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
         {
-            // Get embryo from ingredients - use simple LINQ to avoid Predicate conflicts
-            var embryo = context.Ingredients?.FirstOrDefault(t => t.def == ThingDefOf.HumanEmbryo) as HumanEmbryo;
-            if (embryo?.TryGetComp<CompHasPawnSources>() is CompHasPawnSources sources && sources.pawnSources != null)
+            ("ValidatePatient", Hooks.ValidatePatient)
+        };
+
+        public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>();
+
+        public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
+        {
+            ("Log", Hooks.LogResult)
+        };
+
+        // ==================== EXECUTE ====================
+
+        public bool Execute(ref OperationContext context, ref OperationResult result)
+        {
+            try
             {
-                // Apply pregnancy hediff
-                var hediff = HediffMaker.MakeHediff(HediffDefOf.PregnantHuman, context.Patient) as Hediff_Pregnant;
-                if (hediff != null)
+                var patient = context.GetArgument<Pawn>(0);
+                var recipe = context.GetArgument<RecipeDef>(2);
+                var facility = context.GetArgument<ThingWithComps>(3);
+                var ingredients = context.GetArgument<System.Collections.Generic.List<Thing>>(4);
+
+                // Calculate success chance
+                float successChance = HealthHelper.GetVanillaSuccessChance(recipe, patient, null);
+                bool success = Rand.Value <= successChance;
+
+                if (success)
                 {
-                    // Set parents from embryo source
-                    if (sources.pawnSources.Count >= 2)
+                    // Get embryo from ingredients
+                    var embryo = ingredients?.FirstOrDefault(t => t.def == ThingDefOf.HumanEmbryo) as HumanEmbryo;
+                    if (embryo?.TryGetComp<CompHasPawnSources>() is CompHasPawnSources sources && sources.pawnSources != null)
                     {
-                        // Pass null for geneset, vanilla will handle it from the embryo
-                        hediff.SetParents(
-                            sources.pawnSources[0],
-                            sources.pawnSources[1],
-                            embryo.GeneSet);
+                        // Apply pregnancy hediff
+                        var hediff = HediffMaker.MakeHediff(HediffDefOf.PregnantHuman, patient) as Hediff_Pregnant;
+                        if (hediff != null)
+                        {
+                            // Set parents from embryo source
+                            if (sources.pawnSources.Count >= 2)
+                            {
+                                hediff.SetParents(
+                                    sources.pawnSources[0],
+                                    sources.pawnSources[1],
+                                    embryo.GeneSet);
+                            }
+
+                            patient.health.AddHediff(hediff);
+                            result.AppliedEffects.Add(hediff);
+
+                            // Consume stock
+                            FacilityHelper.ConsumeStock(facility, recipe);
+
+                            result.Success = true;
+                            Logger.Log("YAMP", $"Successfully implanted embryo in {patient.LabelShort}");
+                        }
+                        else
+                        {
+                            result.Success = false;
+                            result.FailureReason = "Failed to create pregnancy hediff";
+                        }
                     }
-
-                    context.Patient.health.AddHediff(hediff);
-                    result.AppliedHediffs.Add(hediff);
-                    Logger.Log("YAMP", $"Successfully implanted embryo in {context.Patient.LabelShort}");
+                    else
+                    {
+                        result.Success = false;
+                        result.FailureReason = "Invalid embryo";
+                    }
                 }
-            }
-        }
+                else
+                {
+                    // Embryo is lost on failure
+                    HealthHelper.ApplyDamage(patient, DamageDefOf.Cut, 5, null);
+                    result.Success = false;
+                    result.FailureReason = "Embryo implantation failed";
+                }
 
-        protected override void HandleFailure(OperationContext context, OperationResult result)
-        {
-            result.FailureReason = "Embryo implantation failed";
-            // Embryo is lost on failure
-            context.Patient.TakeDamage(new DamageInfo(DamageDefOf.Cut, 5, 0, -1, null, null));
+                return result.Success;
+            }
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = ex;
+                result.FailureReason = $"Exception: {ex.Message}";
+                Logger.Log("YAMP", $"ImplantEmbryoOperation failed: {ex.Message}");
+                return false;
+            }
         }
     }
 
     /// <summary>
     /// Anesthetize pawn
     /// </summary>
-    public class AnesthetizeOperation : BaseOperation
+    public class AnesthetizeOperation : Core.IOperation
     {
-        public override string Name => "Anesthetize";
+        public string Name => "Anesthetize";
 
-        public ThingDef ItemDef => ThingDefOf.MedicineIndustrial;
-        public int RequiredCount => 1;
-
-        protected override void ExecuteOperation(OperationContext context, OperationResult result)
+        public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
         {
-            // Anesthetize pawn
-            if (!context.Patient.RaceProps.IsFlesh)
+            ("ValidatePatient", Hooks.ValidatePatient),
+            ("ValidateFlesh", Hooks.ValidateFleshPatient)
+        };
+
+        public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>();
+
+        public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
+        {
+            ("Log", Hooks.LogResult)
+        };
+
+        // ==================== EXECUTE ====================
+
+        public bool Execute(ref OperationContext context, ref OperationResult result)
+        {
+            try
             {
-                result.FailureReason = "Pawn is not a flesh-based organism";
-                return;
+                var patient = context.GetArgument<Pawn>(0);
+                var recipe = context.GetArgument<RecipeDef>(2);
+                var facility = context.GetArgument<ThingWithComps>(3);
+
+                // Anesthetize pawn
+                patient.health.forceDowned = true;
+                var anesthetic = HealthHelper.AddHediff(patient, HediffDefOf.Anesthetic, null);
+                patient.health.forceDowned = false;
+
+                if (anesthetic != null)
+                {
+                    result.AppliedEffects.Add(anesthetic);
+
+                    // Consume stock
+                    FacilityHelper.ConsumeStock(facility, recipe);
+
+                    result.Success = true;
+                    Logger.Log("YAMP", $"Successfully anesthetized {patient.LabelShort}");
+                }
+                else
+                {
+                    result.Success = false;
+                    result.FailureReason = "Failed to apply anesthetic";
+                }
+
+                return result.Success;
             }
-
-            context.Patient.health.forceDowned = true;
-            context.Patient.health.AddHediff(HediffDefOf.Anesthetic);
-            context.Patient.health.forceDowned = false;
-
-            Logger.Log("YAMP", $"Successfully anesthetized {context.Patient.LabelShort}");
-        }
-
-        protected override void HandleFailure(OperationContext context, OperationResult result)
-        {
-            result.FailureReason = "Anesthetization failed";
+            catch (Exception ex)
+            {
+                result.Success = false;
+                result.Error = ex;
+                result.FailureReason = $"Exception: {ex.Message}";
+                Logger.Log("YAMP", $"AnesthetizeOperation failed: {ex.Message}");
+                return false;
+            }
         }
     }
 }

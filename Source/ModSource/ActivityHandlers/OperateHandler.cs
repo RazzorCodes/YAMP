@@ -3,11 +3,13 @@ using System.Linq;
 using RimWorld;
 using Verse;
 using YAMP.OperationSystem;
+using YAMP.OperationSystem.Core;
 
 namespace YAMP.Activities
 {
     /// <summary>
-    /// Static handler for operation completion callbacks
+    /// Static handler for operation completion callbacks.
+    /// Uses new pipeline-based operation system.
     /// </summary>
     public static class OperateHandler
     {
@@ -35,7 +37,7 @@ namespace YAMP.Activities
                 return;
             }
 
-            ExecuteOperation(facility, bill, parts, stockCost);
+            ExecuteOperation(facility, bill, parts);
         }
 
         /// <summary>
@@ -58,84 +60,52 @@ namespace YAMP.Activities
             ReturnParts(facility?.Container, parts, bill);
         }
 
-        private static void ExecuteOperation(Building_MedPod facility, Bill_Medical bill, List<Thing> parts, float stockCost)
+        private static void ExecuteOperation(Building_MedPod facility, Bill_Medical bill, List<Thing> parts)
         {
             var handler = OperationRegistry.GetHandler(bill.recipe.Worker.GetType());
             if (handler == null)
             {
-                Logger.Debug($"OperateHandler: Missing handler for {bill.recipe.Worker.GetType()}");
+                Logger.Debug($"OperateHandler: No custom handler for {bill.recipe.Worker.GetType()}, skipping");
                 ReturnParts(facility.Container, parts, bill);
                 return;
             }
 
+            // Create new context with object[] arguments
+            // Arguments: [0]=Patient, [1]=BodyPart, [2]=Recipe, [3]=Facility, [4]=Ingredients
             var context = new OperationContext
             {
-                Patient = facility.Container.GetPawn(),
-                Bill = bill,
-                BodyPart = bill.Part,
-                Ingredients = parts,
-                Facility = facility,
-                Surgeon = null, // Automated surgery
-                SuccessChance = 1f, // todo: use vanilla success chance
-
-                // Pre-operation: Consume operational stock
-                PreOperationHook = (ctx) => PreOperationAction(facility, stockCost),
-
-                // Post-operation: Collect products into pod container
-                PostOperationHook = (ctx, result) => PostOperationAction(facility, result),
+                OperationName = handler.Name,
+                Arguments = new object[]
+                {
+                    facility.Container.GetPawn(),  // 0: Patient (Pawn)
+                    bill.Part,                      // 1: BodyPart (BodyPartRecord)
+                    bill.recipe,                    // 2: Recipe (RecipeDef)
+                    facility,                       // 3: Facility (ThingWithComps)
+                    parts                           // 4: Ingredients (List<Thing>)
+                }
             };
 
-            var result = handler.Perform(context);
+            // Execute through pipeline
+            var result = OperationRegistry.ExecuteOperation(handler, context);
+
             if (!result.Success)
             {
-                Logger.Debug($"OperateHandler: Failed to execute operation");
+                Logger.Debug($"OperateHandler: Operation '{handler.Name}' failed: {result.FailureReason}");
+
+                // Return unused parts on failure
+                ReturnParts(facility.Container, parts, bill);
 
                 // Notify components after failed operation
                 facility.GetComp<Comp_PodTend>()?.CheckTend();
                 facility.GetComp<Comp_PodOperate>()?.CheckOperation();
             }
-        }
-
-        private static void PreOperationAction(Building_MedPod facility, float stockCost)
-        {
-            if (!facility.Stock.TryConsumeStock(stockCost))
+            else
             {
-                Logger.Debug($"OperateHandler: Failed to consume stock during pre-op");
-            }
-        }
+                Logger.Debug($"OperateHandler: Operation '{handler.Name}' succeeded");
 
-        private static void PostOperationAction(Building_MedPod facility, OperationResult result)
-        {
-            if (result.Success)
-            {
-                // Add any products to the pod container
-                foreach (var product in result.Products)
-                {
-                    // Despawn first if spawned to remove from map/container
-                    if (product.Spawned)
-                    {
-                        product.DeSpawn();
-                    }
-
-                    // Now try to add to container
-                    if (!facility.Container.GetDirectlyHeldThings().TryAdd(product))
-                    {
-                        // If container is full, spawn it near the facility
-                        GenPlace.TryPlaceThing(
-                            product,
-                            facility.Position,
-                            facility.Map,
-                            ThingPlaceMode.Near
-                        );
-                        Logger.Debug(
-                            $"[YAMP] Container full or not available, dropped {product.Label} on ground"
-                        );
-                    }
-                    else
-                    {
-                        Logger.Trace($"OperateHandler: Collected product: {product.Label}");
-                    }
-                }
+                // Notify components after successful operation
+                facility.GetComp<Comp_PodTend>()?.CheckTend();
+                facility.GetComp<Comp_PodOperate>()?.CheckOperation();
             }
         }
 
