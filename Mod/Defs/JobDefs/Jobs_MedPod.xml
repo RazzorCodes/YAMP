@@ -16,7 +16,7 @@
   <JobDef>
     <defName>YAMP_CarryToMedPod</defName>
     <driverClass>YAMP.JobDriver_CarryToMedPod</driverClass>
-    <reportString>carrying TargetA to med pod.</reportString>
-    <casualInterruptible>false</casualInterruptible>
+    <reportString>carrying TargetB to med pod.</reportString>
+    <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
   </JobDef>
 </Defs>
