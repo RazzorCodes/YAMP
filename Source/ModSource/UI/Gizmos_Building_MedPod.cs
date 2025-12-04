@@ -30,6 +30,9 @@ namespace YAMP
                 yield return gizmo;
 
             yield return this.EjectProducts();
+
+            foreach (Gizmo debugGizmo in GetDebugGizmos())
+                yield return debugGizmo;
         }
 
         private Gizmo EjectProducts()
