@@ -40,9 +40,9 @@ namespace YAMP.OperationSystem
         private bool CheckHemogenGene(ref OperationContext context)
         {
             var patient = context.GetArgument<Pawn>(0);
-            if (patient?.genes?.GetGene(GeneDefOf.Hemogenic) == null)
+            if (patient?.genes?.GetGene(GeneDefOf.Hemogenic) != null)
             {
-                context.SetState("FailureReason", "Patient does not have hemogenic gene");
+                context.SetState("FailureReason", "Patient has hemogenic gene");
                 return false;
             }
             return true;
@@ -77,8 +77,7 @@ namespace YAMP.OperationSystem
                 result.Products.Add(hemogenPack);
 
                 // Apply blood loss
-                var bloodLoss = HealthHelper.AddHediff(patient, HediffDefOf.BloodLoss, null) as Hediff;
-                if (bloodLoss != null)
+                if (HealthHelper.AddHediff(patient, HediffDefOf.BloodLoss, null) is Hediff bloodLoss)
                 {
                     bloodLoss.Severity = hemogenLossAmount;
                 }
