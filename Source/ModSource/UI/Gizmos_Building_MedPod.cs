@@ -30,6 +30,8 @@ namespace YAMP
                 yield return gizmo;
 
             yield return this.EjectProducts();
+            yield return this.SelectPatient();
+            yield return this.FuelGizmo();
 
             foreach (Gizmo debugGizmo in GetDebugGizmos())
                 yield return debugGizmo;
@@ -55,6 +57,41 @@ namespace YAMP
                                 out _
                             );
                     }
+                }
+            };
+        }
+
+        private Gizmo SelectPatient()
+        {
+            Pawn pawn = Container.GetPawn();
+            return new Command_Action
+            {
+                defaultLabel = "Select Patient",
+                defaultDesc = "Select the pawn inside the med pod.",
+                icon = TexCommand.Draft,
+                action = () =>
+                {
+                    if (pawn != null)
+                    {
+                        Find.Selector.ClearSelection();
+                        Find.Selector.Select(pawn);
+                        // Jump camera to the pawn for better UX
+                        Find.CameraDriver.JumpToCurrentMapLoc(pawn.Position);
+                    }
+                }
+            };
+        }
+
+        private Gizmo FuelGizmo()
+        {
+            return new Command_Action
+            {
+                defaultLabel = "Fuel: " + Stock.Buffer.ToString("F0") + "/" + targetFuelLevel.ToString("F0"),
+                defaultDesc = "Medicine fuel buffer. Click to set target level.\n\nCurrent: " + Stock.Buffer.ToString("F0") + "\nTarget: " + targetFuelLevel.ToString("F0"),
+                icon = TexCommand.ForbidOff,
+                action = () =>
+                {
+                    Find.WindowStack.Add(new Dialog_Slider(val => $"Set target fuel level: {val}", 0, 500, val => targetFuelLevel = val, (int)targetFuelLevel));
                 }
             };
         }

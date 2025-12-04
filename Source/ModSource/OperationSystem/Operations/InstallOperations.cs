@@ -94,7 +94,7 @@ namespace YAMP.OperationSystem
 
                     // Remove negative hediffs from the part
                     var hediffsToRemove = patient.health.hediffSet.hediffs
-                        .Where(h => h.Part == bodyPart)
+                        .Where(h => h.Part == bodyPart && h.def.isBad)
                         .ToList();
                     foreach (var hediff in hediffsToRemove)
                     {

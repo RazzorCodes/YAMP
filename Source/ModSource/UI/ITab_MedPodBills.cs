@@ -161,41 +161,24 @@ namespace YAMP
             // This ensures mod compatibility and uses RimWorld's native UI
             try
             {
-                // Ensure helper instance exists (already created above)
+                // Change global selection to the pawn so ITab_Pawn_Health can access it
+                // We don't restore the selection back to the pod because when the bill tab is open,
+                // the user is interacting with the pawn's health UI, so keeping the pawn selected
+                // is actually the desired behavior. Restoring the selection was causing an annoying
+                // re-selection cycle.
+                Thing currentSelection = Find.Selector.SingleSelectedThing;
 
-                // Store original selection
-                Thing originalSelectedThing = Find.Selector.SingleSelectedThing;
-
-                try
+                if (currentSelection != patient)
                 {
-                    // Temporarily change global selection to the pawn
-                    // This allows ITab_Pawn_Health to access the pawn via SelThing
-                    if (originalSelectedThing != patient)
-                    {
-                        Find.Selector.ClearSelection();
-                        Find.Selector.Select(patient);
-                    }
-
-                    // Try to set SelThing on the helper instance
-                    pawnHealthTab.SetSelThingPublic(patient);
-
-                    // Delegate to RimWorld's FillTab - this will render the bills UI
-                    pawnHealthTab.FillTabPublic();
+                    Find.Selector.ClearSelection();
+                    Find.Selector.Select(patient);
                 }
-                finally
-                {
-                    // Restore original selection
-                    if (originalSelectedThing != patient && originalSelectedThing != null)
-                    {
-                        Find.Selector.ClearSelection();
-                        Find.Selector.Select(originalSelectedThing);
-                    }
-                    else if (originalSelectedThing == null && Find.Selector.SingleSelectedThing == patient)
-                    {
-                        // Restore to no selection if it was null originally
-                        Find.Selector.ClearSelection();
-                    }
-                }
+
+                // Try to set SelThing on the helper instance
+                pawnHealthTab.SetSelThingPublic(patient);
+
+                // Delegate to RimWorld's FillTab - this will render the bills UI
+                pawnHealthTab.FillTabPublic();
             }
             catch (Exception ex)
             {

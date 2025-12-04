@@ -122,7 +122,7 @@ namespace YAMP
             // 2. Search the map
             return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map,
                 ThingRequest.ForGroup(ThingRequestGroup.Medicine), PathEndMode.ClosestTouch, TraverseParms.For(pawn),
-                9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x)); // && fuelComp.fuelFilter.Allows(x));
+                9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x) && pod.GetStoreSettings().AllowedToAccept(x));
         }
 
         private Thing FindIngredientForRecipe(Pawn pawn, Comp_PodOperate ops, RecipeDef recipe)
