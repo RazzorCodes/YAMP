@@ -8,28 +8,28 @@ namespace YAMP
 {
     public class WorkGiver_LoadMedPod : WorkGiver_Scanner
     {
-        public override ThingRequest PotentialWorkThingRequest => ThingRequest.ForDef(ThingDef.Named("YAMP_MedPod"));
-        public override PathEndMode PathEndMode => PathEndMode.Touch;
+        public override ThingRequest PotentialWorkThingRequest => ThingRequest.ForDef(InternalDefOf.YAMP_MedPod);
+        public override PathEndMode PathEndMode => PathEndMode.InteractionCell;
 
         public override bool HasJobOnThing(Pawn pawn, Thing t, bool forced = false)
         {
             if (!(t is Building_MedPod pod)) return false;
 
-            OperationalStock fuelComp = pod.Stock;
+            OperationalStock stock = pod.Stock;
             Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
-            PodContainer podContainer = pod.Container;
+            PodContainer container = pod.Container;
 
-            if (fuelComp == null || opsComp == null || podContainer == null) return false;
+            if (stock == null || opsComp == null || container == null) return false;
 
             // Check if we need fuel (no max capacity check - just check if stock is low)
-            if (fuelComp.TotalStock < 100f)
+            if (stock.TotalStock < 100f)
             {
                 Thing medicine = FindMedicine(pawn, pod);
                 if (medicine != null) return true;
             }
 
             // Check if we need ingredients for operation
-            Pawn patient = podContainer.GetPawn();
+            Pawn patient = container.GetPawn();
             if (patient != null)
             {
                 Bill_Medical bill = GetFirstSurgeryBill(pod);
