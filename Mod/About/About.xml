@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
   <name>YAMP - Yet Another Med Pod</name>
-  <author>Andrei</author>
-  <packageId>Andrei.YAMP</packageId>
+  <author>Razzor</author>
+  <packageId>Razzor.YAMP</packageId>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
