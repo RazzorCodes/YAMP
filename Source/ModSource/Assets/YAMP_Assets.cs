@@ -16,8 +16,8 @@ namespace YAMP
         static YAMP_Assets()
         {
             ProgressBarFilledMatYellow = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.5f, 0.475f, 0.1f));
-            ProgressBarFilledMatRed = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.5f, 0.475f, 0.1f));
-            ProgressBarFilledMatGreen = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.5f, 0.475f, 0.1f));
+            ProgressBarFilledMatRed = SolidColorMaterials.SimpleSolidColorMaterial(new Color(1f, 0.1f, 0.1f));
+            ProgressBarFilledMatGreen = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.1f, 1f, 0.1f));
             ProgressBarUnfilledMat = SolidColorMaterials.SimpleSolidColorMaterial(new Color(0.15f, 0.15f, 0.15f));
         }
     }

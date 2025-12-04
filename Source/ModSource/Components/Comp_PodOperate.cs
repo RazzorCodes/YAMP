@@ -45,6 +45,9 @@ namespace YAMP
         {
             base.CompTick();
 
+            // Periodic buffering - every 300 ticks
+            OperationalStock.TickBuffering(Verse.GenTicks.TicksGame);
+
             // Handle activity completion
             if (_currentActivity != null && _currentActivity.IsFinished)
             {
@@ -101,19 +104,34 @@ namespace YAMP
                 return;
             }
 
-            // Reserve parts and calculate stock cost before starting activity
-            var parts = OperateHandler.ReserveParts(PodConatiner, _currentBill);
-            if (parts == null)
+            // Check if we have sufficient stock - wait if not
+            var stockCost = OperationalStock.CalculateStockCost(_currentBill.recipe);
+            if (OperationalStock.TotalStock < stockCost)
             {
-                Logger.Debug($"Missing parts for {_currentBill.recipe.label}");
+                Logger.Debug($"Waiting for stock: need {stockCost}, have {OperationalStock.TotalStock}");
+                return; // Wait - will retry on next tick
+            }
+
+            // Check if we have required parts (specific medicines)
+            if (!OperationalStock.HasRequiredParts(_currentBill.recipe))
+            {
+                Logger.Debug($"Waiting for required parts for {_currentBill.recipe.label}");
+                return; // Wait
+            }
+
+            // Reserve parts before starting activity
+            if (!OperationalStock.ReserveParts(_currentBill.recipe))
+            {
+                Logger.Debug($"Failed to reserve parts for {_currentBill.recipe.label}");
                 return;
             }
 
-            var stockCost = OperationalStock.CalculateStockCost(_currentBill.recipe);
-            if (stockCost > OperationalStock.TotalStock)
+            // Reserve non-medicine parts from container
+            var parts = OperateHandler.ReserveParts(PodConatiner, _currentBill);
+            if (parts == null)
             {
-                Logger.Debug($"Missing stock for {_currentBill.recipe.label}. Needed {stockCost}, have {OperationalStock.TotalStock}");
-                OperateHandler.ReturnParts(PodConatiner, parts, _currentBill);
+                Logger.Debug($"Missing non-medicine parts for {_currentBill.recipe.label}");
+                OperationalStock.UnreserveParts(); // Rollback medicine reservation
                 return;
             }
 

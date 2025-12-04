@@ -12,6 +12,7 @@ try {
     Write-Host "Building $modName..."
     Set-Location "$sourceDir\Source"
     dotnet build -c Release
+    dotnet test --logger "console;verbosity=detailed"
 
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Build failed!"

@@ -1,18 +1,16 @@
 using System;
 using System.Collections.Generic;
-using NUnit.Framework;
+using Xunit;
 using YAMP.OperationSystem.Core;
 
 namespace YAMP.Tests
 {
-    [TestFixture]
     public class OperationSystemTests
     {
         private OperationExecutor _executor;
         private OperationContext _context;
 
-        [SetUp]
-        public void Setup()
+        public OperationSystemTests()
         {
             _executor = new OperationExecutor();
             _context = new OperationContext
@@ -23,7 +21,7 @@ namespace YAMP.Tests
             };
         }
 
-        [Test]
+        [Fact]
         public void Execute_SuccessfulPipeline_RunsAllHooks()
         {
             // Arrange
@@ -33,20 +31,20 @@ namespace YAMP.Tests
             var result = _executor.Execute(op, _context);
 
             // Assert
-            Assert.IsTrue(result.Success);
-            Assert.IsTrue(op.PreHookCalled);
-            Assert.IsTrue(op.ExecuteCalled);
-            Assert.IsTrue(op.PostHookCalled);
-            Assert.IsTrue(op.CleanupCalled);
-            
+            Assert.True(result.Success);
+            Assert.True(op.PreHookCalled);
+            Assert.True(op.ExecuteCalled);
+            Assert.True(op.PostHookCalled);
+            Assert.True(op.CleanupCalled);
+
             // Verify trace
-            Assert.AreEqual(3, op.Trace.Count); // Pre, Execute, Post
-            Assert.AreEqual("PreHook", op.Trace[0].hookName);
-            Assert.AreEqual("Execute", op.Trace[1].hookName);
-            Assert.AreEqual("PostHook", op.Trace[2].hookName);
+            Assert.Equal(3, op.Trace.Count); // Pre, Execute, Post
+            Assert.Equal("PreHook", op.Trace[0].hookName);
+            Assert.Equal("Execute", op.Trace[1].hookName);
+            Assert.Equal("PostHook", op.Trace[2].hookName);
         }
 
-        [Test]
+        [Fact]
         public void Execute_PreHookFailure_AbortsPipeline()
         {
             // Arrange
@@ -57,17 +55,17 @@ namespace YAMP.Tests
             var result = _executor.Execute(op, _context);
 
             // Assert
-            Assert.IsFalse(op.ExecuteCalled);
-            Assert.IsFalse(op.PostHookCalled);
-            Assert.IsTrue(op.CleanupCalled);
-            
+            Assert.False(op.ExecuteCalled);
+            Assert.False(op.PostHookCalled);
+            Assert.True(op.CleanupCalled);
+
             // Verify trace
-            Assert.AreEqual(1, op.Trace.Count);
-            Assert.AreEqual("PreHook", op.Trace[0].hookName);
-            Assert.IsFalse(op.Trace[0].success);
+            Assert.Equal(1, op.Trace.Count);
+            Assert.Equal("PreHook", op.Trace[0].hookName);
+            Assert.False(op.Trace[0].success);
         }
 
-        [Test]
+        [Fact]
         public void Execute_ExecuteFailure_SkipsPostHooks()
         {
             // Arrange
@@ -77,25 +75,25 @@ namespace YAMP.Tests
             var result = _executor.Execute(op, _context);
 
             // Assert
-            Assert.IsFalse(result.Success);
-            Assert.IsTrue(op.PreHookCalled);
-            Assert.IsTrue(op.ExecuteCalled);
-            Assert.IsFalse(op.PostHookCalled); // Skipped
-            Assert.IsTrue(op.CleanupCalled);
+            Assert.False(result.Success);
+            Assert.True(op.PreHookCalled);
+            Assert.True(op.ExecuteCalled);
+            Assert.False(op.PostHookCalled); // Skipped
+            Assert.True(op.CleanupCalled);
         }
 
-        [Test]
+        [Fact]
         public void Execute_StatePassing_Works()
         {
             // Arrange
             var op = new TestOperation(true);
-            
+
             // Act
             _executor.Execute(op, _context);
 
             // Assert
-            Assert.IsTrue(_context.HasState("PreHookSet"));
-            Assert.AreEqual("Value", _context.GetState<string>("PreHookSet"));
+            Assert.True(_context.HasState("PreHookSet"));
+            Assert.Equal("Value", _context.GetState<string>("PreHookSet"));
         }
 
         // Mock Operation
@@ -119,7 +117,7 @@ namespace YAMP.Tests
 
             public List<(string name, PreHook hook)> PreHooks => new List<(string name, PreHook hook)>
             {
-                ("PreHook", (ref OperationContext ctx) => 
+                ("PreHook", (ref OperationContext ctx) =>
                 {
                     PreHookCalled = true;
                     ctx.SetState("PreHookSet", "Value");
@@ -129,7 +127,7 @@ namespace YAMP.Tests
 
             public List<(string name, PostHook hook)> PostHooks => new List<(string name, PostHook hook)>
             {
-                ("PostHook", (ref OperationContext ctx, ref OperationResult res) => 
+                ("PostHook", (ref OperationContext ctx, ref OperationResult res) =>
                 {
                     PostHookCalled = true;
                     return true;
@@ -138,7 +136,7 @@ namespace YAMP.Tests
 
             public List<(string name, CleanupHook hook)> Cleanup => new List<(string name, CleanupHook hook)>
             {
-                ("Cleanup", (ref OperationContext ctx, ref OperationResult res, List<(string hookName, bool success)> trace) => 
+                ("Cleanup", (ref OperationContext ctx, ref OperationResult res, List<(string hookName, bool success)> trace) =>
                 {
                     CleanupCalled = true;
                     Trace = trace;

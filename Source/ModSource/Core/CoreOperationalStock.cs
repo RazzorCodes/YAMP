@@ -1,179 +1,349 @@
+using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
-using System.Net.Mail;
 using RimWorld;
-using UnityEngine;
 using Verse;
+using YAMP.OperationSystem.Core;
 
 namespace YAMP
 {
-    public class OperationalStock : IExposable
+    /// <summary>
+    /// Operational stock management with periodic buffering and part reservation.
+    /// This partial class handles RimWorld-specific integrations.
+    /// </summary>
+    public partial class OperationalStock : IExposable
     {
-        public float fuelValueHerbal = 10f;
-        public float fuelValueIndustrial = 30f;
-        public float fuelValueGlitter = 100f;
+        // ==================== CONSTANTS ====================
 
-        public float GetFuelValue(ThingDef def, int amount = 0)
-        {
-            if (def == ThingDefOf.MedicineHerbal)
-            {
-                return fuelValueHerbal * amount;
-            }
+        private const float MAX_BUFFER = 500f;
+        private const int BUFFER_TICK_INTERVAL = 300;
 
-            if (def == ThingDefOf.MedicineIndustrial)
-            {
-                return fuelValueIndustrial * amount;
-            }
+        // ==================== FIELDS ====================
 
-            if (def == ThingDefOf.MedicineUltratech)
-            {
-                return fuelValueGlitter * amount;
-            }
-
-            Logger.Log("Info", $"YAMP: Did not parse as medicine: {def.defName}");
-            return -1f;
-        }
         private PodContainer _container;
-
         private float _buffer = 0f;
-        public float Buffer => _buffer;
-        public float TotalStock => _buffer + _unusedStock;
-
         private float _unusedStock = 0f;
+        private int _lastBufferTick = 0;
+        private List<Thing> _reservedParts = new List<Thing>();
+
+        // Fuel values for medicine types
+        private readonly float fuelValueHerbal = 10f;
+        private readonly float fuelValueIndustrial = 30f;
+        private readonly float fuelValueGlitter = 100f;
+
+        // ==================== PROPERTIES ====================
+
+        public float Buffer => _buffer;
         public float UnusedStock => _unusedStock;
+        public float TotalStock => CoreOperationalStock.ComputeTotalStock(_buffer, _unusedStock);
+
+        // ==================== CONSTRUCTOR ====================
 
         public OperationalStock(PodContainer container)
         {
             _container = container;
         }
 
+        // ==================== ISAVE/LOAD ====================
+
         public void ExposeData()
         {
             Scribe_Values.Look(ref _buffer, "buffer", 0f);
+            Scribe_Values.Look(ref _lastBufferTick, "lastBufferTick", 0);
+            Scribe_Collections.Look(ref _reservedParts, "reservedParts", LookMode.Deep);
 
             if (Scribe.mode == LoadSaveMode.PostLoadInit)
             {
+                _reservedParts ??= new List<Thing>();
                 ComputeStock();
             }
         }
 
+        // ==================== STOCK VALUE CALCULATION ====================
+
+        /// <summary>
+        /// Get stock value for a RimWorld ThingDef using properties directly.
+        /// </summary>
+        public float GetFuelValue(ThingDef def, int amount = 1)
+        {
+            if (def == ThingDefOf.MedicineHerbal)
+                return fuelValueHerbal * amount;
+
+            if (def == ThingDefOf.MedicineIndustrial)
+                return fuelValueIndustrial * amount;
+
+            if (def == ThingDefOf.MedicineUltratech)
+                return fuelValueGlitter * amount;
+
+            Logger.Log("Info", $"YAMP: Did not parse as medicine: {def.defName}");
+            return -1f;
+        }
+
+        // ==================== STOCK COMPUTATION ====================
+
+        /// <summary>
+        /// Compute unused stock from container medicines.
+        /// </summary>
         public void ComputeStock()
         {
             _unusedStock = _container.Get()
-            .Where(t => t.def.IsMedicine)
-            .Aggregate(
-                    0f,
-                    (acc, thing) =>
-                    {
-                        float value = GetFuelValue(thing.def, thing.stackCount);
-                        if (value > 0)
-                        {
-                            acc += value;
-                        }
-                        return acc;
-                    });
+                .Where(t => t.def.IsMedicine && !_reservedParts.Contains(t))
+                .Aggregate(0f, (acc, thing) =>
+                {
+                    float value = GetFuelValue(thing.def, thing.stackCount);
+                    if (value > 0)
+                        acc += value;
+                    return acc;
+                });
         }
 
+        /// <summary>
+        /// Calculate stock cost for a recipe (static for backwards compatibility).
+        /// </summary>
         public static float CalculateStockCost(RecipeDef recipe)
         {
-            float baseStockCost = 0;
+            var ingredients = new Dictionary<string, (int count, bool isFixed, bool isMedicine)>();
+
             foreach (IngredientCount ingredient in recipe.ingredients)
             {
-                if (ingredient.IsFixedIngredient)
-                {
-                    continue;
-                }
+                bool isFixed = ingredient.IsFixedIngredient;
+                bool isMedicine = ingredient.filter.Allows(ThingDefOf.MedicineHerbal);
+                int count = (int)ingredient.GetBaseCount();
 
-                if (ingredient.filter.Allows(ThingDefOf.MedicineHerbal)) // Static method, might be hard to replace without passing provider. 
-                // But CalculateStockCost is static! It cannot use instance _defProvider.
-                // We should probably leave it as is, or pass provider to it?
-                // Or make it non-static?
-                // For now, let's leave it as is. It uses ThingDefOf.MedicineHerbal.
-                // If the test calls this, it will crash. But the test calls ComputeStock (instance method).
-                {
-                    baseStockCost += ingredient.GetBaseCount();
-                }
+                ingredients[ingredient.filter.Summary] = (count, isFixed, isMedicine);
             }
 
-            return baseStockCost;
+            return CoreOperationalStock.CalculateRequiredStock(ingredients);
         }
 
-        private bool TryProvideStock(float amount)
+        // ==================== PERIODIC BUFFERING ====================
+
+        /// <summary>
+        /// Called every tick - buffers one medicine every 300 ticks.
+        /// </summary>
+        public void TickBuffering(int currentTick)
         {
-            if (_buffer >= amount)
+            if (currentTick - _lastBufferTick >= BUFFER_TICK_INTERVAL)
             {
-                return true;
+                _lastBufferTick = currentTick;
+                BufferOneMedicine();
             }
+        }
 
-            if (TotalStock < amount)
-            {
-                Logger.Debug($"YAMP: Not enough stock to provide {amount} fuel value, TotalStock: {TotalStock}");
-                return false;
-            }
-
+        /// <summary>
+        /// Buffer one medicine (lowest value) if space available.
+        /// </summary>
+        private void BufferOneMedicine()
+        {
             var candidates = _container.Get()
-                .Where(thing => thing.def.IsMedicine)
+                .Where(thing => thing.def.IsMedicine && !_reservedParts.Contains(thing))
                 .OrderBy(thing => thing.def.BaseMarketValue)
                 .ToList();
 
-            float stillNeeded = amount - _buffer;
+            foreach (var candidate in candidates)
+            {
+                float perItemValue = GetFuelValue(candidate.def, 1);
+
+                if (perItemValue <= 0)
+                    continue;
+
+                // Check if we can buffer without overflow
+                if (CoreOperationalStock.CanBuffer(perItemValue, _buffer, MAX_BUFFER))
+                {
+                    // Consume one item from stack
+                    var item = candidate.SplitOff(1);
+                    _buffer += perItemValue;
+                    item.Destroy();
+
+                    ComputeStock();
+                    Logger.Debug($"YAMP: Buffered 1 {candidate.def.defName} (+{perItemValue}f), buffer now: {_buffer}f");
+                    return; // Only buffer one per tick
+                }
+            }
+        }
+
+        // ==================== STOCK PROVISION & CONSUMPTION ====================
+
+        /// <summary>
+        /// Provide stock by drawing from buffer, then unused medicines.
+        /// </summary>
+        private bool TryProvideStock(float amount)
+        {
+            // Try allocating from buffer first
+            var (allocated, remaining) = CoreOperationalStock.TryAllocateFromBuffer(amount, _buffer);
+            _buffer -= allocated;
+
+            if (remaining <= 0)
+                return true;
+
+            // Need to pull from unused stock
+            if (CoreOperationalStock.ShouldWaitForStock(remaining, _unusedStock))
+            {
+                Logger.Debug($"YAMP: Not enough stock to provide {remaining}f, UnusedStock: {_unusedStock}f");
+                return false;
+            }
+
+            // Consume medicines to cover remaining
+            var candidates = _container.Get()
+                .Where(thing => thing.def.IsMedicine && !_reservedParts.Contains(thing))
+                .OrderBy(thing => thing.def.BaseMarketValue)
+                .ToList();
+
+            float stillNeeded = remaining;
 
             foreach (var candidate in candidates)
             {
                 if (stillNeeded <= 0)
-                {
                     break;
-                }
 
-                float stackValue = GetFuelValue(candidate.def, candidate.stackCount);
                 float perItemValue = GetFuelValue(candidate.def, 1);
+                float stackValue = GetFuelValue(candidate.def, candidate.stackCount);
 
-                if (stackValue <= stillNeeded)
-                {
-                    // Consume entire stack
-                    _buffer += stackValue;
-                    stillNeeded -= stackValue;
-                    var splitItem = candidate.SplitOff(candidate.stackCount);
-                    Logger.Debug($"YAMP: Consumed {splitItem.stackCount} {splitItem.def.defName}");
-                    splitItem.Destroy();
-                }
-                else
-                {
-                    // Consume partial stack
-                    int numberOfCandidateToConsume = Mathf.CeilToInt(stillNeeded / perItemValue);
-                    float consumedValue = GetFuelValue(candidate.def, numberOfCandidateToConsume);
-                    _buffer += consumedValue;
-                    stillNeeded = 0;
-                    var splitItem = candidate.SplitOff(numberOfCandidateToConsume);
-                    Logger.Debug($"YAMP: Consumed {splitItem.stackCount} {splitItem.def.defName}");
-                    splitItem.Destroy();
+                if (perItemValue <= 0)
+                    continue;
 
-                    ComputeStock();
-                    return true;
-                }
+                int toConsume = CoreOperationalStock.CalculateItemsToConsume(
+                    stillNeeded, perItemValue, candidate.stackCount);
+
+                float consumedValue = GetFuelValue(candidate.def, toConsume);
+                _buffer += consumedValue;
+                stillNeeded -= consumedValue;
+
+                var splitItem = candidate.SplitOff(toConsume);
+                splitItem.Destroy();
+
+                Logger.Debug($"YAMP: Consumed {toConsume} {candidate.def.defName} (+{consumedValue}f)");
             }
 
-            if (stillNeeded <= 0)
-            {
-                ComputeStock();
-                return true;
-            }
-
-            Logger.Error($"Could not consume enough items to make stock when TotalStock({TotalStock}) < amount({amount})");
-            return false;
+            ComputeStock();
+            return stillNeeded <= 0;
         }
 
+        /// <summary>
+        /// Consume stock (public API).
+        /// </summary>
         public bool TryConsumeStock(float amount)
         {
             if (!TryProvideStock(amount))
-            {
                 return false;
-            }
 
-            Logger.Debug($"YAMP: Consuming {amount} stock");
+            Logger.Debug($"YAMP: Consuming {amount}f stock, buffer: {_buffer}f");
             _buffer -= amount;
             return true;
+        }
+
+        // ==================== PART RESERVATION ====================
+
+        /// <summary>
+        /// Check if required parts for recipe are available.
+        /// </summary>
+        public bool HasRequiredParts(RecipeDef recipe)
+        {
+            foreach (var ingredient in recipe.ingredients)
+            {
+                if (!ingredient.IsFixedIngredient || !IsMedicineIngredient(ingredient))
+                    continue;
+
+                // Need specific medicine - check container
+                var count = _container.Get()
+                    .Where(t => ingredient.filter.Allows(t) && !_reservedParts.Contains(t))
+                    .Sum(t => t.stackCount);
+
+                if (count < ingredient.GetBaseCount())
+                    return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Reserve parts for recipe (removes from container, stores in list).
+        /// </summary>
+        public bool ReserveParts(RecipeDef recipe)
+        {
+            var toReserve = new List<Thing>();
+
+            foreach (var ingredient in recipe.ingredients)
+            {
+                if (!ingredient.IsFixedIngredient || !IsMedicineIngredient(ingredient))
+                    continue;
+
+                float stillNeeded = ingredient.GetBaseCount();
+                var candidates = _container.Get()
+                    .Where(t => ingredient.filter.Allows(t) && !_reservedParts.Contains(t))
+                    .OrderBy(t => t.MarketValue)
+                    .ToList();
+
+                foreach (var candidate in candidates)
+                {
+                    if (stillNeeded <= 0)
+                        break;
+
+                    if (candidate.stackCount >= stillNeeded)
+                    {
+                        var split = candidate.SplitOff((int)stillNeeded);
+                        toReserve.Add(split);
+                        stillNeeded = 0;
+                    }
+                    else
+                    {
+                        toReserve.Add(candidate);
+                        stillNeeded -= candidate.stackCount;
+                    }
+                }
+
+                if (stillNeeded > 0)
+                {
+                    // Failed - return what we took
+                    ReturnPartsInternal(toReserve);
+                    return false;
+                }
+            }
+
+            _reservedParts.AddRange(toReserve);
+            ComputeStock(); // Recompute since we removed from available
+            Logger.Debug($"YAMP: Reserved {toReserve.Count} parts for {recipe.label}");
+            return true;
+        }
+
+        /// <summary>
+        /// Unreserve parts (return to container).
+        /// </summary>
+        public void UnreserveParts()
+        {
+            ReturnPartsInternal(_reservedParts);
+            _reservedParts.Clear();
+            ComputeStock();
+            Logger.Debug("YAMP: Unreserved all parts");
+        }
+
+        /// <summary>
+        /// Consume reserved parts (destroy them).
+        /// </summary>
+        public void ConsumeParts()
+        {
+            foreach (var part in _reservedParts)
+            {
+                part.Destroy();
+            }
+
+            Logger.Debug($"YAMP: Consumed {_reservedParts.Count} reserved parts");
+            _reservedParts.Clear();
+        }
+
+        private void ReturnPartsInternal(List<Thing> parts)
+        {
+            foreach (var part in parts)
+            {
+                _container.GetDirectlyHeldThings().TryAddOrTransfer(part);
+            }
+        }
+
+        private bool IsMedicineIngredient(IngredientCount ingredient)
+        {
+            return ingredient.filter.Allows(ThingDefOf.MedicineHerbal) ||
+                   ingredient.filter.Allows(ThingDefOf.MedicineIndustrial) ||
+                   ingredient.filter.Allows(ThingDefOf.MedicineUltratech);
         }
     }
 }

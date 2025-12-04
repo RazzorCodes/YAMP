@@ -67,6 +67,7 @@ namespace YAMP.Activities
             {
                 Logger.Debug($"OperateHandler: No custom handler for {bill.recipe.Worker.GetType()}, skipping");
                 ReturnParts(facility.Container, parts, bill);
+                facility.Stock.UnreserveParts(); // Cleanup medicine reservation
                 return;
             }
 
@@ -94,6 +95,7 @@ namespace YAMP.Activities
 
                 // Return unused parts on failure
                 ReturnParts(facility.Container, parts, bill);
+                facility.Stock.UnreserveParts(); // Return reserved medicines
 
                 // Notify components after failed operation
                 facility.GetComp<Comp_PodTend>()?.CheckTend();
@@ -102,6 +104,9 @@ namespace YAMP.Activities
             else
             {
                 Logger.Debug($"OperateHandler: Operation '{handler.Name}' succeeded");
+
+                // Consume reserved parts on success
+                facility.Stock.ConsumeParts();
 
                 // Notify components after successful operation
                 facility.GetComp<Comp_PodTend>()?.CheckTend();
