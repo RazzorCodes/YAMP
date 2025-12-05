@@ -15,7 +15,7 @@ namespace YAMP
     {
         // ==================== CONSTANTS ====================
 
-        private const float MAX_BUFFER = 500f;
+        public const float MAX_BUFFER = 500f;
         private const int BUFFER_TICK_INTERVAL = 300;
 
         // ==================== FIELDS ====================
@@ -121,19 +121,22 @@ namespace YAMP
         /// <summary>
         /// Called every tick - buffers one medicine every 300 ticks.
         /// </summary>
-        public void TickBuffering(int currentTick)
+        /// <param name="currentTick">Current game tick</param>
+        /// <param name="targetBufferLevel">Target buffer level from gizmo (default: MAX_BUFFER)</param>
+        public void TickBuffering(int currentTick, float targetBufferLevel = MAX_BUFFER)
         {
             if (currentTick - _lastBufferTick >= BUFFER_TICK_INTERVAL)
             {
                 _lastBufferTick = currentTick;
-                BufferOneMedicine();
+                BufferOneMedicine(targetBufferLevel);
             }
         }
 
         /// <summary>
         /// Buffer one medicine (lowest value) if space available.
         /// </summary>
-        private void BufferOneMedicine()
+        /// <param name="targetBufferLevel">Target buffer level from gizmo</param>
+        private void BufferOneMedicine(float targetBufferLevel)
         {
             var candidates = _container.Get()
                 .Where(thing => thing.def.IsMedicine && !_reservedParts.Contains(thing))
@@ -147,8 +150,8 @@ namespace YAMP
                 if (perItemValue <= 0)
                     continue;
 
-                // Check if we can buffer without overflow
-                if (CoreOperationalStock.CanBuffer(perItemValue, _buffer, MAX_BUFFER))
+                // Check if we can buffer without overflow (using target level from gizmo)
+                if (CoreOperationalStock.CanBuffer(perItemValue, _buffer, targetBufferLevel))
                 {
                     // Consume one item from stack
                     var item = candidate.SplitOff(1);
@@ -156,7 +159,7 @@ namespace YAMP
                     item.Destroy();
 
                     ComputeStock();
-                    Logger.Debug($"YAMP: Buffered 1 {candidate.def.defName} (+{perItemValue}f), buffer now: {_buffer}f");
+                    Logger.Debug($"YAMP: Buffered 1 {candidate.def.defName} (+{perItemValue}f), buffer now: {_buffer}f / {targetBufferLevel}f");
                     return; // Only buffer one per tick
                 }
             }

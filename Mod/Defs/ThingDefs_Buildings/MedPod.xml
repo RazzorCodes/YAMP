@@ -22,7 +22,7 @@
     <fillPercent>0.5</fillPercent>
     <designationCategory>Misc</designationCategory>
     <inspectorTabs>
-      <li>YAMP.ITab_MedPodBills</li>
+      <li>YAMP.UITab_PodConditionalBills</li>
       <li>YAMP.ITab_MedPodStorage</li>
     </inspectorTabs>
     <statBases>

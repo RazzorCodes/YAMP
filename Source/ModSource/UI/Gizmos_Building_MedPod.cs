@@ -53,15 +53,27 @@ namespace YAMP
 
         private Gizmo FuelGizmo()
         {
-            return new Command_Action
+            return new Gizmo_SetLevel
             {
-                defaultLabel = "Fuel: " + Stock.Buffer.ToString("F0") + "/" + targetFuelLevel.ToString("F0"),
-                defaultDesc = "Medicine fuel buffer. Click to set target level.\n\nCurrent: " + Stock.Buffer.ToString("F0") + "\nTarget: " + targetFuelLevel.ToString("F0"),
-                icon = TexCommand.ForbidOff,
-                action = () =>
-                {
-                    Find.WindowStack.Add(new Dialog_Slider(val => $"Set target fuel level: {val}", 0, 500, val => targetFuelLevel = val, (int)targetFuelLevel));
-                }
+                // Core value accessors
+                GetCurrentValue = () => Stock.Buffer,
+                GetMaxCapacity = () => YAMP.OperationalStock.MAX_BUFFER,
+                GetTargetValue = () => targetFuelLevel,
+                SetTargetValue = (val) => targetFuelLevel = val,
+
+                // Display properties
+                GizmoTitle = "Medicine Fuel",
+                GetBarLabel = () => $"{Stock.Buffer.ToStringDecimalIfSmall()} / {targetFuelLevel.ToStringDecimalIfSmall()}",
+
+                // Behavior
+                IsTargetConfigurable = true,
+
+                // Optional: Enable auto-refill toggle if you want
+                // ShowAutoRefillToggle = true,
+                // GetAutoRefillEnabled = () => someAutoRefillField,
+                // SetAutoRefillEnabled = (val) => someAutoRefillField = val,
+                // AutoRefillIcon = TexCommand.ForbidOff,
+                // GetAutoRefillTooltip = () => "Allow automatic refilling of medicine fuel"
             };
         }
 

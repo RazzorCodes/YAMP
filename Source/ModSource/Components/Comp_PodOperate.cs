@@ -45,8 +45,9 @@ namespace YAMP
         {
             base.CompTick();
 
-            // Periodic buffering - every 300 ticks
-            OperationalStock.TickBuffering(Verse.GenTicks.TicksGame);
+            // Periodic buffering - every 300 ticks (respects gizmo target level)
+            var medPod = (Building_MedPod)parent;
+            OperationalStock.TickBuffering(Verse.GenTicks.TicksGame, medPod.targetFuelLevel);
 
             // Handle activity completion
             if (_currentActivity != null && _currentActivity.IsFinished)
@@ -57,7 +58,6 @@ namespace YAMP
                 // Safely remove the bill
                 if (_currentBill != null)
                 {
-                    var medPod = (Building_MedPod)parent;
                     var billStack = medPod.BillStack;
                     if (billStack != null && billStack.Bills.Contains(_currentBill))
                     {

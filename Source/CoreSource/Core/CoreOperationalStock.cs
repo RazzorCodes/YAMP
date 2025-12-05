@@ -9,11 +9,6 @@ namespace YAMP.OperationSystem.Core
     /// </summary>
     public static class CoreOperationalStock
     {
-        // ==================== CONFIGURATION ====================
-
-        public const float MAX_BUFFER = 500f;
-        public const int BUFFER_TICK_INTERVAL = 300;
-
         // ==================== BUFFER MANAGEMENT ====================
 
         /// <summary>

@@ -10,13 +10,13 @@ namespace YAMP
     /// <summary>
     /// Tab for managing conditional surgery operations on the MedPod
     /// </summary>
-    public class ITab_MedPodBills : ITab
+    public class UITab_PodConditionalBills : ITab
     {
         private Vector2 scrollPosition;
         private const float LineHeight = 30f;
         private const float ButtonWidth = 100f;
 
-        public ITab_MedPodBills()
+        public UITab_PodConditionalBills()
         {
             size = new Vector2(500f, 480f);
             labelKey = "TabBills";
