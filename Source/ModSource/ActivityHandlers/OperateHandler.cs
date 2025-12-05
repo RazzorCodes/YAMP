@@ -100,6 +100,7 @@ namespace YAMP.Activities
                 // Notify components after failed operation
                 facility.GetComp<Comp_PodTend>()?.CheckTend();
                 facility.GetComp<Comp_PodOperate>()?.CheckOperation();
+                facility.GetComp<Comp_PodConditionals>()?.CheckConditionals();
             }
             else
             {
@@ -111,6 +112,7 @@ namespace YAMP.Activities
                 // Notify components after successful operation
                 facility.GetComp<Comp_PodTend>()?.CheckTend();
                 facility.GetComp<Comp_PodOperate>()?.CheckOperation();
+                facility.GetComp<Comp_PodConditionals>()?.CheckConditionals();
             }
         }
 

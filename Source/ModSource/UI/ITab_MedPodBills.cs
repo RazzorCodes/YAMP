@@ -1,196 +1,230 @@
-using System;
-using System.Reflection;
+using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using UnityEngine;
 using Verse;
+using YAMP.ConditionalOperations;
 
 namespace YAMP
 {
     /// <summary>
-    /// Helper class to access protected members of ITab_Pawn_Health
+    /// Tab for managing conditional surgery operations on the MedPod
     /// </summary>
-    public class ITab_Pawn_Health_Helper : ITab_Pawn_Health
-    {
-        private static PropertyInfo selThingProperty;
-        private static FieldInfo selThingBackingField;
-
-        public Thing GetSelThingPublic()
-        {
-            return SelThing;
-        }
-
-        public void SetSelThingPublic(Thing thing)
-        {
-            // Try to set via property first (reflection can sometimes bypass read-only)
-            if (selThingProperty == null)
-            {
-                selThingProperty = typeof(ITab).GetProperty("SelThing", BindingFlags.Public | BindingFlags.Instance);
-            }
-
-            if (selThingProperty != null)
-            {
-                try
-                {
-                    selThingProperty.SetValue(this, thing);
-                    return; // Success!
-                }
-                catch (Exception ex)
-                {
-                    // Property is read-only, try backing field approach
-                    Log.Warning($"[YAMP] Property SetValue failed: {ex.Message}");
-                }
-            }
-
-            // If property setting failed, try to find and set the backing field
-            // Search through all types in the inheritance hierarchy
-            if (selThingBackingField == null)
-            {
-                Type currentType = typeof(ITab);
-                Thing currentSelThing = SelThing; // Get current value to match against
-
-                // Search through inheritance hierarchy
-                while (currentType != null && selThingBackingField == null)
-                {
-                    // Get all fields (including inherited ones)
-                    FieldInfo[] fields = currentType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
-                    foreach (FieldInfo field in fields)
-                    {
-                        // Check if field type matches Thing or is assignable
-                        if (typeof(Thing).IsAssignableFrom(field.FieldType) || field.FieldType == typeof(object))
-                        {
-                            try
-                            {
-                                object fieldValue = field.GetValue(this);
-                                // If this field's value matches SelThing, it's likely the backing field
-                                if (fieldValue == currentSelThing)
-                                {
-                                    selThingBackingField = field;
-                                    Log.Message($"[YAMP] Found SelThing backing field: {field.Name} in {currentType.Name}");
-                                    break;
-                                }
-                            }
-                            catch
-                            {
-                                // Continue searching
-                            }
-                        }
-                    }
-
-                    if (selThingBackingField == null)
-                    {
-                        currentType = currentType.BaseType;
-                    }
-                }
-            }
-
-            if (selThingBackingField != null)
-            {
-                try
-                {
-                    selThingBackingField.SetValue(this, thing);
-                }
-                catch (Exception ex)
-                {
-                    Log.Error($"[YAMP] Failed to set SelThing backing field: {ex.Message}");
-                }
-            }
-            else
-            {
-                // SelThing is managed by the inspector window system, but we're using global selection as a workaround
-                // This is expected and not an error - the global selection change handles it
-                // Log.Warning("[YAMP] Could not find SelThing property or backing field. Using global selection workaround.");
-            }
-        }
-
-        public void FillTabPublic()
-        {
-            FillTab();
-        }
-
-        public Vector2 GetSizePublic()
-        {
-            return size;
-        }
-    }
-
     public class ITab_MedPodBills : ITab
     {
-        private static ITab_Pawn_Health_Helper pawnHealthTab;
+        private Vector2 scrollPosition;
+        private const float LineHeight = 30f;
+        private const float ButtonWidth = 100f;
 
         public ITab_MedPodBills()
         {
-            // Get size from RimWorld's ITab_Pawn_Health to match its dimensions
-            // This ensures the UI displays correctly with proper width and height
-            if (pawnHealthTab == null)
-            {
-                pawnHealthTab = new ITab_Pawn_Health_Helper();
-            }
-            Vector2 baseSize = pawnHealthTab.GetSizePublic(); // Use RimWorld's native size
-
-            // Add extra width to accommodate mod buttons (like Dubs Mint Menus) and ensure close button is visible
-            // RimWorld's default is typically around 630x510, we add extra width for mod compatibility
-            size = new Vector2(baseSize.x, baseSize.y);
+            size = new Vector2(500f, 480f);
             labelKey = "TabBills";
         }
 
-        protected Building_MedPod SelMedPod => (Building_MedPod)SelThing;
+        private Building_MedPod SelMedPod => (Building_MedPod)SelThing;
+
         protected override void FillTab()
         {
-            // Resize window when tab is opened to ensure proper dimensions
-            if (pawnHealthTab == null)
+            var medPod = SelMedPod;
+            if (medPod == null) return;
+
+            var condComp = medPod.GetComp<Comp_PodConditionals>();
+            if (condComp == null) return;
+
+            var manager = condComp.Manager;
+            Rect rect = new Rect(0f, 0f, size.x, size.y).ContractedBy(10f);
+
+            // Title
+            Widgets.Label(rect.TopPartPixels(30f), "Conditional Operations");
+
+            Rect contentRect = rect;
+            contentRect.yMin += 35f;
+
+            // Add button
+            Rect addButtonRect = new Rect(contentRect.x, contentRect.y, ButtonWidth, 24f);
+            if (Widgets.ButtonText(addButtonRect, "Add"))
             {
-                pawnHealthTab = new ITab_Pawn_Health_Helper();
+                Find.WindowStack.Add(new Dialog_AddConditionalOperation(manager));
             }
-            Vector2 baseSize = pawnHealthTab.GetSizePublic();
-            size = new Vector2(baseSize.x + 250f, baseSize.y);
 
-            Pawn patient = SelMedPod.GetCurOccupant(0);
+            contentRect.yMin += 30f;
 
-            if (patient == null)
+            // List of operations
+            Rect listRect = contentRect;
+            if (manager.Operations.Count == 0)
             {
-                // No patient case - show simple message
-                Rect rect = new Rect(0f, 0f, size.x, size.y).ContractedBy(10f);
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(rect, "No patient in pod");
-                Text.Anchor = TextAnchor.UpperLeft;
-                return;
+                Widgets.Label(listRect, "No conditional operations configured.");
             }
-
-            // Delegate to RimWorld's ITab_Pawn_Health to render bills
-            // This ensures mod compatibility and uses RimWorld's native UI
-            try
+            else
             {
-                // Change global selection to the pawn so ITab_Pawn_Health can access it
-                // We don't restore the selection back to the pod because when the bill tab is open,
-                // the user is interacting with the pawn's health UI, so keeping the pawn selected
-                // is actually the desired behavior. Restoring the selection was causing an annoying
-                // re-selection cycle.
-                Thing currentSelection = Find.Selector.SingleSelectedThing;
+                float viewHeight = manager.Operations.Count * LineHeight;
+                Rect viewRect = new Rect(0f, 0f, listRect.width - 16f, viewHeight);
 
-                if (currentSelection != patient)
+                Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
+
+                float y = 0f;
+                foreach (var operation in manager.Operations.ToList())
                 {
-                    Find.Selector.ClearSelection();
-                    Find.Selector.Select(patient);
+                    Rect lineRect = new Rect(0f, y, viewRect.width, LineHeight);
+                    DrawOperationLine(lineRect, operation, manager);
+                    y += LineHeight;
                 }
 
-                // Try to set SelThing on the helper instance
-                pawnHealthTab.SetSelThingPublic(patient);
-
-                // Delegate to RimWorld's FillTab - this will render the bills UI
-                pawnHealthTab.FillTabPublic();
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"[YAMP] Error delegating to RimWorld's ITab_Pawn_Health: {ex}");
-                // Fallback: show error message
-                Rect rect = new Rect(0f, 0f, size.x, size.y).ContractedBy(10f);
-                Text.Font = GameFont.Small;
-                Text.Anchor = TextAnchor.MiddleCenter;
-                Widgets.Label(rect, $"Error loading bills: {ex.Message}");
-                Text.Anchor = TextAnchor.UpperLeft;
+                Widgets.EndScrollView();
             }
         }
 
+        private void DrawOperationLine(Rect rect, ConditionalOperation operation, ConditionalOperationManager manager)
+        {
+            // Label
+            Rect labelRect = new Rect(rect.x, rect.y + 5f, rect.width - 110f, LineHeight - 10f);
+            Widgets.Label(labelRect, operation.GetLabel());
+
+            // Delete button
+            Rect deleteRect = new Rect(rect.xMax - 100f, rect.y + 3f, 90f, LineHeight - 6f);
+            if (Widgets.ButtonText(deleteRect, "Delete"))
+            {
+                manager.RemoveOperation(operation);
+            }
+
+            Widgets.DrawLineHorizontal(rect.x, rect.yMax, rect.width);
+        }
+    }
+
+    /// <summary>
+    /// Dialog for adding a new conditional operation
+    /// </summary>
+    public class Dialog_AddConditionalOperation : Window
+    {
+        private ConditionalOperationManager manager;
+        private ConditionType selectedCondition = ConditionType.BloodLoss;
+        private OperatorType selectedOperator = OperatorType.GreaterThan;
+        private float selectedThreshold = 0.5f; // Default to Severe (50%)
+        private RecipeDef selectedRecipe = null;
+
+        public override Vector2 InitialSize => new Vector2(400f, 300f);
+
+        public Dialog_AddConditionalOperation(ConditionalOperationManager manager)
+        {
+            this.manager = manager;
+            doCloseButton = true;
+            doCloseX = true;
+            forcePause = true;
+            absorbInputAroundWindow = true;
+        }
+
+        public override void DoWindowContents(Rect inRect)
+        {
+            Listing_Standard listing = new Listing_Standard();
+            listing.Begin(inRect);
+
+            // Title
+            Text.Font = GameFont.Medium;
+            listing.Label("Add Conditional Operation");
+            Text.Font = GameFont.Small;
+            listing.Gap();
+
+            // Condition dropdown
+            if (listing.ButtonText($"Condition: {selectedCondition}"))
+            {
+                List<FloatMenuOption> options = new List<FloatMenuOption>();
+                foreach (ConditionType type in System.Enum.GetValues(typeof(ConditionType)))
+                {
+                    options.Add(new FloatMenuOption(type.ToString(), () => selectedCondition = type));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            // Operator dropdown
+            if (listing.ButtonText($"Operator: {GetOperatorSymbol(selectedOperator)}"))
+            {
+                List<FloatMenuOption> options = new List<FloatMenuOption>();
+                foreach (OperatorType type in System.Enum.GetValues(typeof(OperatorType)))
+                {
+                    options.Add(new FloatMenuOption(GetOperatorSymbol(type), () => selectedOperator = type));
+                }
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            // Threshold dropdown
+            if (listing.ButtonText($"Threshold: {GetThresholdLabel(selectedThreshold)}"))
+            {
+                List<FloatMenuOption> options = new List<FloatMenuOption>
+                {
+                    new FloatMenuOption("None (0%)", () => selectedThreshold = 0f),
+                    new FloatMenuOption("Mild (25%)", () => selectedThreshold = 0.25f),
+                    new FloatMenuOption("Severe (50%)", () => selectedThreshold = 0.5f),
+                    new FloatMenuOption("Extreme (75%)", () => selectedThreshold = 0.75f)
+                };
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            // Recipe selector
+            if (listing.ButtonText(selectedRecipe == null ? "Select Surgery..." : selectedRecipe.label))
+            {
+                List<FloatMenuOption> options = new List<FloatMenuOption>();
+
+                // Find Recipe_BloodTransfusion
+
+                // and other surgery recipes
+                var recipes = DefDatabase<RecipeDef>.AllDefsListForReading
+                    .Where(r => r.defName.Contains("BloodTransfusion") || r.IsSurgery)
+                    .OrderBy(r => r.label);
+
+                foreach (var recipe in recipes)
+                {
+                    options.Add(new FloatMenuOption(recipe.label, () => selectedRecipe = recipe));
+                }
+
+                Find.WindowStack.Add(new FloatMenu(options));
+            }
+
+            listing.Gap();
+
+            // Add button
+            if (listing.ButtonText("Add Operation"))
+            {
+                if (selectedRecipe != null)
+                {
+                    var operation = new ConditionalOperation(
+                        selectedCondition,
+                        selectedOperator,
+                        selectedThreshold,
+                        selectedRecipe
+                    );
+                    manager.AddOperation(operation);
+                    Close();
+                }
+                else
+                {
+                    Messages.Message("Please select a surgery recipe", MessageTypeDefOf.RejectInput, false);
+                }
+            }
+
+            listing.End();
+        }
+
+        private string GetOperatorSymbol(OperatorType op)
+        {
+            switch (op)
+            {
+                case OperatorType.GreaterThan: return ">";
+                case OperatorType.LessThan: return "<";
+                case OperatorType.Equal: return "=";
+                case OperatorType.GreaterThanOrEqual: return ">=";
+                case OperatorType.LessThanOrEqual: return "<=";
+                default: return "?";
+            }
+        }
+
+        private string GetThresholdLabel(float threshold)
+        {
+            if (threshold <= 0.01f) return "None (0%)";
+            if (threshold <= 0.25f) return "Mild (25%)";
+            if (threshold <= 0.50f) return "Severe (50%)";
+            if (threshold <= 0.75f) return "Extreme (75%)";
+            return $"{threshold:P0}";
+        }
     }
 }

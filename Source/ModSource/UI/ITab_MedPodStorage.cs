@@ -18,5 +18,19 @@ namespace YAMP
         }
 
         protected override IStoreSettingsParent SelStoreSettingsParent => SelMedPod;
+
+        protected override void FillTab()
+        {
+            // Ensure only medicine can be stored
+            var settings = SelMedPod.GetStoreSettings();
+            if (settings?.filter != null)
+            {
+                // Clear all and set only medicine category
+                settings.filter.SetDisallowAll();
+                settings.filter.SetAllow(ThingCategoryDefOf.Medicine, true);
+            }
+
+            base.FillTab();
+        }
     }
 }

@@ -50,19 +50,22 @@ namespace YAMP
                             // Transfer directly to container
                             pawn.carryTracker.innerContainer.TryTransferToContainer(carriedThing, podContainer.GetDirectlyHeldThings(), carriedThing.stackCount);
                             operationalStock.ComputeStock();
-                            
+
                             // Notify components that medicine was dropped
                             Pod.GetComp<Comp_PodTend>()?.CheckTend();
                             Pod.GetComp<Comp_PodOperate>()?.CheckOperation();
+                            Pod.GetComp<Comp_PodConditionals>()?.CheckConditionals();
                         }
                     }
                     else
                     {
                         // Transfer directly to container
                         pawn.carryTracker.innerContainer.TryTransferToContainer(carriedThing, podContainer.GetDirectlyHeldThings(), carriedThing.stackCount);
-                        
+
                         // Notify components that items were dropped
+                        Pod.GetComp<Comp_PodTend>()?.CheckTend();
                         Pod.GetComp<Comp_PodOperate>()?.CheckOperation();
+                        Pod.GetComp<Comp_PodConditionals>()?.CheckConditionals();
                     }
                 },
                 defaultCompleteMode = ToilCompleteMode.Instant
