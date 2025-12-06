@@ -32,9 +32,10 @@ try {
     }
 
     Write-Host "Deploying to $destDir..."
-    if (-not (Test-Path $destDir)) {
-        New-Item -ItemType Directory -Path $destDir | Out-Null
+    if (Test-Path $destDir) {
+        Remove-Item $destDir -Recurse -Force
     }
+    New-Item -ItemType Directory -Path $destDir | Out-Null
 
     # Copy folders
     $folders = @("About", "Defs", "Textures", "Assemblies")
