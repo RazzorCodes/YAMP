@@ -33,9 +33,9 @@ namespace YAMP
             }
         }
 
-        public override void CompTick()
+        public override void CompTickRare()
         {
-            base.CompTick();
+            base.CompTickRare();
             CheckConditionals();
         }
 
