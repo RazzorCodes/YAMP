@@ -6,6 +6,4 @@
     <reportString>loading med pod.</reportString>
     <allowOpportunisticPrefix>true</allowOpportunisticPrefix>
   </JobDef>
-  
-
 </Defs>

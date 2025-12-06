@@ -6,5 +6,6 @@ using Verse;
 public static class InternalDefOf
 {
     public static ThingDef YAMP_MedPod;
+    public static JobDef YAMP_EnterMedPod;
 
 }

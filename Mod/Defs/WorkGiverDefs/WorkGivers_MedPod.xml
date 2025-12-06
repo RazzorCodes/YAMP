@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Defs>
   <WorkGiverDef>
+    <defName>YAMP_EnterMedPod</defName>
+    <label>enter med pod</label>
+    <giverClass>YAMP.WorkGiver_EnterMedPod</giverClass>
+    <workType>Patient</workType>
+    <priorityInType>9999</priorityInType>
+    <verb>enter med pod</verb>
+    <gerund>entering med pod</gerund>
+
+  </WorkGiverDef>
+  
+  <WorkGiverDef>
     <defName>YAMP_LoadMedPod</defName>
     <label>load med pod</label>
     <giverClass>YAMP.WorkGiver_LoadMedPod</giverClass>
