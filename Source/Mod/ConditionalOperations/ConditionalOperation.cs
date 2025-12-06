@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using RimWorld;
 using Verse;
 
@@ -9,8 +11,9 @@ namespace YAMP.ConditionalOperations
     /// </summary>
     public enum ConditionType
     {
-        BloodLoss
-        // Future: Pain, Consciousness, Infection, etc.
+        BloodLoss,
+        Infection,
+        Pain
     }
 
     /// <summary>
@@ -66,8 +69,20 @@ namespace YAMP.ConditionalOperations
             switch (conditionType)
             {
                 case ConditionType.BloodLoss:
-                    var hediff = pawn.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
-                    return hediff?.Severity ?? 0f;
+                    var bloodLoss = pawn.health.hediffSet.GetFirstHediffOfDef(HediffDefOf.BloodLoss);
+                    return bloodLoss?.Severity ?? 0f;
+
+                case ConditionType.Infection:
+                    // Check for any infection hediffs
+                    var infections = pawn.health.hediffSet.hediffs
+                        .Where(h => h.def.makesSickThought || h.def.defName.ToLower().Contains("infection"))
+                        .OrderByDescending(h => h.Severity)
+                        .FirstOrDefault();
+                    return infections?.Severity ?? 0f;
+
+                case ConditionType.Pain:
+                    return pawn.health.hediffSet.PainTotal;
+
                 default:
                     return float.NaN;
             }
@@ -134,7 +149,45 @@ namespace YAMP.ConditionalOperations
                 if (threshold <= 0.75f) return "Extreme (75%)";
                 return $"{threshold:P0}";
             }
+
+            // For infection and pain, show severity levels
+            if (conditionType == ConditionType.Infection || conditionType == ConditionType.Pain)
+            {
+                if (threshold <= 0.01f) return "None (0%)";
+                if (threshold <= 0.25f) return "Minor (25%)";
+                if (threshold <= 0.50f) return "Moderate (50%)";
+                if (threshold <= 0.75f) return "Serious (75%)";
+                if (threshold <= 1.0f) return "Extreme (100%)";
+                return $"{threshold:P0}";
+            }
+
             return $"{threshold:F2}";
+        }
+
+        /// <summary>
+        /// Gets allowed operations for a given condition type
+        /// </summary>
+        public static IEnumerable<RecipeDef> GetAllowedOperations(ConditionType conditionType)
+        {
+            var allRecipes = DefDatabase<RecipeDef>.AllDefsListForReading;
+
+            switch (conditionType)
+            {
+                case ConditionType.BloodLoss:
+                    // Only allow blood transfusion
+                    return allRecipes.Where(r => r.defName.ToLower().Contains("bloodtransfusion"));
+
+                case ConditionType.Infection:
+                case ConditionType.Pain:
+                    // Only allow administer drug operations
+                    return allRecipes.Where(r =>
+                        r.defName.ToLower().Contains("administer") ||
+                        r.workerClass?.Name.ToLower().Contains("administer") == true ||
+                        r.label?.ToLower().Contains("administer") == true);
+
+                default:
+                    return Enumerable.Empty<RecipeDef>();
+            }
         }
     }
 }

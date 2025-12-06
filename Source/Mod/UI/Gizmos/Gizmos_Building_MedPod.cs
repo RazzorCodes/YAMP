@@ -62,7 +62,7 @@ namespace YAMP
                 SetTargetValue = (val) => targetFuelLevel = val,
 
                 // Display properties
-                GizmoTitle = "Medicine Fuel",
+                GizmoTitle = "Current Stock",
                 GetBarLabel = () => $"{Stock.Buffer.ToStringDecimalIfSmall()} / {targetFuelLevel.ToStringDecimalIfSmall()}",
 
                 // Behavior

@@ -131,7 +131,12 @@ namespace YAMP
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
                 foreach (ConditionType type in System.Enum.GetValues(typeof(ConditionType)))
                 {
-                    options.Add(new FloatMenuOption(type.ToString(), () => selectedCondition = type));
+                    options.Add(new FloatMenuOption(type.ToString(), () =>
+                    {
+                        selectedCondition = type;
+                        // Reset selected recipe when condition changes since different conditions allow different operations
+                        selectedRecipe = null;
+                    }));
                 }
                 Find.WindowStack.Add(new FloatMenu(options));
             }
@@ -165,16 +170,18 @@ namespace YAMP
             {
                 List<FloatMenuOption> options = new List<FloatMenuOption>();
 
-                // Find Recipe_BloodTransfusion
-
-                // and other surgery recipes
-                var recipes = DefDatabase<RecipeDef>.AllDefsListForReading
-                    .Where(r => r.defName.Contains("BloodTransfusion") || r.IsSurgery)
+                // Get allowed recipes for the selected condition type
+                var allowedRecipes = ConditionalOperation.GetAllowedOperations(selectedCondition)
                     .OrderBy(r => r.label);
 
-                foreach (var recipe in recipes)
+                foreach (var recipe in allowedRecipes)
                 {
                     options.Add(new FloatMenuOption(recipe.label, () => selectedRecipe = recipe));
+                }
+
+                if (!options.Any())
+                {
+                    options.Add(new FloatMenuOption("No compatible operations found", null));
                 }
 
                 Find.WindowStack.Add(new FloatMenu(options));

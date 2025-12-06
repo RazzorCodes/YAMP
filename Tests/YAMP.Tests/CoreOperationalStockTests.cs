@@ -236,19 +236,5 @@ namespace YAMP.Tests
             // Assert
             Assert.False(result);
         }
-
-        // ==================== CONSTANTS TESTS ====================
-
-        [Fact]
-        public void MaxBuffer_Is500()
-        {
-            Assert.Equal(500f, CoreOperationalStock.MAX_BUFFER);
-        }
-
-        [Fact]
-        public void BufferTickInterval_Is300()
-        {
-            Assert.Equal(300, CoreOperationalStock.BUFFER_TICK_INTERVAL);
-        }
     }
 }

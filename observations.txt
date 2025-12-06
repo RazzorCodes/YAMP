@@ -1,0 +1,21 @@
+In-game observations:
+- medpod should reserve stock for operation at the beginning
+- medpod should have its progress bar rotated after orientation
+
+- [to test]medpod should be a valid and preffered location for crawling pawns: [experiment] in progress, changed to bed for now
+
+
+
+[to test] !!! bad back was not fixed !!! -> if pawn has hediff maybe operation does not apply?
+
+[to test]!!! critical panic replacing important part like neck and or heart etc will kill the pawn
+
+extra:
+- operations should apply a healing debuff to the operated part; brain-machine interfacing for artificial parts + wound, wound for natural, etc
+
+[done]add a fuel filter: ~a tab was added, shows all items in game~
+[done]add a fuel gizmo: ~gizmo added, does not control max buffer size~
+
+[done/rejected/refactored] ! select pawn gizmo 
+[done] !! must have in-game mod menu to select log level
+[rejected/refactored]!! selecting pod billtab keeps re-selecting the pod in an annoying cycle

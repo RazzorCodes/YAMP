@@ -20,7 +20,7 @@ namespace YAMP
         public BillStack BillStack => GetCurOccupant(0)?.health.surgeryBills;
 
         // Override to prevent forced blue medical bed color
-        public override Color DrawColor => Color.white;
+        public override Color DrawColor => Color.white
 
         // IStoreSettingsParent implementation
         public StorageSettings GetStoreSettings() => _storageSettings;
