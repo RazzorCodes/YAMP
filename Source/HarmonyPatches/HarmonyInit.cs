@@ -5,9 +5,9 @@ using Verse;
 namespace YAMP
 {
     [StaticConstructorOnStartup]
-    public static class YAMPHarmony
+    public static class HarmonyInit
     {
-        static YAMPHarmony()
+        static HarmonyInit()
         {
             var harmony = new Harmony("YAMP");
             harmony.PatchAll();
