@@ -19,8 +19,6 @@ public static class HarmonyPatch_PawnRenderer_BodyAngle
             return;
         }
 
-        Logger.Error($"MedPod rotation: {medPod.Rotation}");
-
         // Set body angle based on MedPod rotation
         Rot4 rotation = medPod.Rotation;
         if (rotation == Rot4.North)
