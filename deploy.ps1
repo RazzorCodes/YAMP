@@ -26,10 +26,10 @@ try {
         if ($LASTEXITCODE -ne 0) {
             Write-Error "Tests failed!"
         }
-    }
 
-    Write-Host "Tests" -NoNewline
-    Write-Host " [OK]" -ForegroundColor Green
+        Write-Host "Tests" -NoNewline
+        Write-Host " [OK]" -ForegroundColor Green
+    }
 
     Write-Host "Deploying to $destDir..."
     if (-not (Test-Path $destDir)) {
@@ -52,7 +52,7 @@ try {
         }
         catch {
             Write-Host "[ERROR]" -ForegroundColor Red
-            THROW $_.Exception.Message
+            throw $_
         }
     }
 
@@ -75,5 +75,4 @@ catch {
 
 finally {
     Set-Location "$sourceDir"
-
 }

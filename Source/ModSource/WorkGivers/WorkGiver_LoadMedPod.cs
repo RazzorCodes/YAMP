@@ -3,6 +3,7 @@ using System.Linq;
 using RimWorld;
 using Verse;
 using Verse.AI;
+using System;
 
 namespace YAMP
 {
@@ -10,6 +11,70 @@ namespace YAMP
     {
         public override ThingRequest PotentialWorkThingRequest => ThingRequest.ForDef(InternalDefOf.YAMP_MedPod);
         public override PathEndMode PathEndMode => PathEndMode.InteractionCell;
+
+
+
+        public override Job JobOnThing(Pawn pawn, Thing t, bool forced = false)
+        {
+            Building_MedPod pod = (Building_MedPod)t;
+            OperationalStock stock = pod.Stock;
+            Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
+            PodContainer container = pod.Container;
+
+            // 1. Check Medicine Refueling based on settings
+            if (pod.medicineRanges != null)
+            {
+                foreach (var kvp in pod.medicineRanges)
+                {
+                    string defName = kvp.Key;
+                    IntRange range = kvp.Value;
+
+                    ThingDef medDef = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
+                    if (medDef == null) continue;
+
+                    int currentCount = container.Get()
+                        .Where(x => x.def == medDef)
+                        .Sum(x => x.stackCount);
+
+                    if (currentCount < range.min)
+                    {
+                        // Needs refueling
+                        int shortage = range.max - currentCount;
+                        Thing medicine = FindMedicine(pawn, pod, medDef, shortage);
+                        if (medicine != null)
+                        {
+                            Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), medicine, pod);
+                            job.count = Math.Min(medicine.stackCount, shortage);
+                            return job;
+                        }
+                    }
+                }
+            }
+            // Fallback for legacy saves or uninitialized settings? 
+            // If medicineRanges is empty, maybe we should default to old behavior or just do nothing?
+            // User requested "ignore current implementatons", implying we should switch fully.
+            // But if user hasn't configured anything, nothing will happen. That's fine.
+
+            // 2. Check Surgery Ingredients
+            Pawn patient = pod.GetCurOccupant(0);
+            if (patient != null)
+            {
+                Bill_Medical bill = GetFirstSurgeryBill(pod);
+                if (bill != null)
+                {
+                    RecipeDef recipe = bill.recipe;
+                    Thing ingredient = FindIngredientForRecipe(pawn, opsComp, recipe);
+                    if (ingredient != null)
+                    {
+                        Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), ingredient, pod);
+                        job.count = ingredient.stackCount;
+                        return job;
+                    }
+                }
+            }
+
+            return null;
+        }
 
         public override bool HasJobOnThing(Pawn pawn, Thing t, bool forced = false)
         {
@@ -21,14 +86,25 @@ namespace YAMP
 
             if (stock == null || opsComp == null || container == null) return false;
 
-            // Check if we need fuel (no max capacity check - just check if stock is low)
-            if (stock.TotalStock < 100f)
+            // Check medicine needs
+            if (pod.medicineRanges != null)
             {
-                Thing medicine = FindMedicine(pawn, pod);
-                if (medicine != null) return true;
+                foreach (var kvp in pod.medicineRanges)
+                {
+                    string defName = kvp.Key;
+                    IntRange range = kvp.Value;
+                    ThingDef medDef = DefDatabase<ThingDef>.GetNamedSilentFail(defName);
+                    if (medDef == null) continue;
+
+                    int currentCount = container.Get().Where(x => x.def == medDef).Sum(x => x.stackCount);
+                    if (currentCount < range.min)
+                    {
+                        if (FindMedicine(pawn, pod, medDef, range.max - currentCount) != null) return true;
+                    }
+                }
             }
 
-            // Check if we need ingredients for operation
+            // Check surgery needs
             Pawn patient = pod.GetCurOccupant(0);
             if (patient != null)
             {
@@ -47,57 +123,6 @@ namespace YAMP
             return false;
         }
 
-        public override Job JobOnThing(Pawn pawn, Thing t, bool forced = false)
-        {
-            Building_MedPod pod = (Building_MedPod)t;
-            OperationalStock fuelComp = pod.Stock;
-            Comp_PodOperate opsComp = pod.TryGetComp<Comp_PodOperate>();
-            PodContainer podContainer = pod.Container;
-
-            // Prioritize Fuel if very low
-            if (fuelComp.TotalStock < 50f)
-            {
-                Thing medicine = FindMedicine(pawn, pod);
-                if (medicine != null)
-                {
-                    Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), medicine, pod);
-                    job.count = medicine.stackCount;
-                    return job;
-                }
-            }
-
-            Pawn patient = pod.GetCurOccupant(0);
-            if (patient != null)
-            {
-                Bill_Medical bill = GetFirstSurgeryBill(pod);
-                if (bill != null)
-                {
-                    RecipeDef recipe = bill.recipe;
-                    Thing ingredient = FindIngredientForRecipe(pawn, opsComp, recipe);
-                    if (ingredient != null)
-                    {
-                        Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), ingredient, pod);
-                        job.count = ingredient.stackCount;
-                        return job;
-                    }
-                }
-            }
-
-            // Fallback to fuel
-            if (fuelComp.TotalStock < 100f)
-            {
-                Thing medicine = FindMedicine(pawn, pod);
-                if (medicine != null)
-                {
-                    Job job = JobMaker.MakeJob(DefDatabase<JobDef>.GetNamed("YAMP_LoadMedPod"), medicine, pod);
-                    job.count = medicine.stackCount;
-                    return job;
-                }
-            }
-
-            return null;
-        }
-
         private Bill_Medical GetFirstSurgeryBill(Building_MedPod pod)
         {
             if (pod?.BillStack == null) return null;
@@ -112,17 +137,12 @@ namespace YAMP
             return null;
         }
 
-        private Thing FindMedicine(Pawn pawn, Building_MedPod pod)
+        private Thing FindMedicine(Pawn pawn, Building_MedPod pod, ThingDef specificDef, int countNeeded)
         {
-            OperationalStock fuelComp = pod.Stock;
-            if (fuelComp == null) return null;
-
-            // 1. Search nearby (linked) shelves
-            // unimplemented
-            // 2. Search the map
+            // Search the map for specific medicine
             return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map,
-                ThingRequest.ForGroup(ThingRequestGroup.Medicine), PathEndMode.ClosestTouch, TraverseParms.For(pawn),
-                9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x) && pod.GetStoreSettings().AllowedToAccept(x));
+                ThingRequest.ForDef(specificDef), PathEndMode.ClosestTouch, TraverseParms.For(pawn),
+                9999, x => !x.IsForbidden(pawn) && pawn.CanReserve(x) && x.stackCount > 0);
         }
 
         private Thing FindIngredientForRecipe(Pawn pawn, Comp_PodOperate ops, RecipeDef recipe)
@@ -144,10 +164,6 @@ namespace YAMP
 
                 if (has < needed)
                 {
-                    // 1. Check Linked Shelves
-                    // unimplemented
-
-                    // 2. Search the map
                     return GenClosest.ClosestThingReachable(pawn.Position, pawn.Map,
                         ThingRequest.ForGroup(ThingRequestGroup.HaulableEver), PathEndMode.ClosestTouch,
                         TraverseParms.For(pawn), 9999,

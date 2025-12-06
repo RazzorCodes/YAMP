@@ -56,7 +56,10 @@ namespace YAMP
             Scribe_Deep.Look(ref _operationalStock, "operationalStock", this);
             Scribe_Deep.Look(ref _storageSettings, "storageSettings", this);
             Scribe_Values.Look(ref targetFuelLevel, "targetFuelLevel", 200f);
+            Scribe_Collections.Look(ref medicineRanges, "medicineRanges", LookMode.Value, LookMode.Value);
         }
+
+        public Dictionary<string, IntRange> medicineRanges = new Dictionary<string, IntRange>();
 
         public void GetChildHolders(List<IThingHolder> outChildren)
         {

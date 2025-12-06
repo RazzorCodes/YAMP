@@ -16,7 +16,7 @@ public static class HarmonyPatch_GetSleepingSlotPos
         {
             return;
         }
-
-        __result = __instance.Position;
+        CellRect occupiedRect = __instance.OccupiedRect();
+        __result = new IntVec3(occupiedRect.maxX, 0, occupiedRect.maxZ);
     }
 }

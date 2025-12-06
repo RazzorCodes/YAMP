@@ -36,6 +36,11 @@ namespace YAMP.ConditionalOperations
             _operations.Remove(operation);
         }
 
+        public bool ShouldEnqueueOperation(Pawn pawn)
+        {
+            return _operations.Any(operation => operation.CheckCondition(pawn));
+        }
+
         /// <summary>
         /// Checks all conditional operations and enqueues matching surgeries for the pawn
         /// </summary>

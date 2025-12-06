@@ -39,6 +39,11 @@ namespace YAMP
 
         // ==================== CONSTRUCTOR ====================
 
+
+        public OperationalStock()
+        {
+        }
+
         public OperationalStock(PodContainer container)
         {
             _container = container;
