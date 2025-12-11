@@ -15,8 +15,9 @@ namespace YAMP
 
         public override bool TryMakePreToilReservations(bool errorOnFailed)
         {
-            return pawn.Reserve(Item, job, 1, -1, null, errorOnFailed) &&
-                   pawn.Reserve(Pod, job, 1, -1, null, errorOnFailed);
+            // Do not reserve the pod itself; the patient already holds the bed reservation
+            // and we still want haulers to deliver supplies while it is occupied.
+            return pawn.Reserve(Item, job, 1, -1, null, errorOnFailed);
         }
 
         protected override IEnumerable<Toil> MakeNewToils()
