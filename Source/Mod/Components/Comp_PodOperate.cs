@@ -22,6 +22,9 @@ namespace YAMP
     public class Comp_PodOperate : ThingComp
     {
         public CompProp_PodOperate Props => (CompProp_PodOperate)props;
+        
+        private CompPowerTrader _powerComp;
+        public bool HasPower => _powerComp?.PowerOn ?? true;
 
         private OperationalStock _operationalStock;
         public OperationalStock OperationalStock =>
@@ -36,6 +39,25 @@ namespace YAMP
         private YAMP.Activities.IActivity _currentActivity = null;
         public float Progress => _currentActivity?.ProgressPercentage ?? 0f;
 
+        public override void PostSpawnSetup(bool respawningAfterLoad)
+        {
+            base.PostSpawnSetup(respawningAfterLoad);
+            var medPod = (Building_MedPod)parent;
+            _powerComp = medPod.PowerComp;
+            _operationalStock = medPod.Stock;
+            _podConatiner = medPod.Container;
+        }
+
+        private bool CheckPowerRequirements(string operation)
+        {
+            if (!HasPower)
+            {
+                Messages.Message($"Cannot {operation}: No power", parent, MessageTypeDefOf.RejectInput);
+                return false;
+            }
+            return true;
+        }
+
         public override void PostExposeData()
         {
             base.PostExposeData();
@@ -44,6 +66,17 @@ namespace YAMP
         public override void CompTick()
         {
             base.CompTick();
+
+            // Check power state every 60 ticks when active
+            if (_currentActivity != null && parent.IsHashIntervalTick(60) && !HasPower)
+            {
+                Logger.Debug("Power lost during operation, stopping current activity");
+                _currentActivity.Stop();
+                _currentActivity = null;
+                _currentBill = null;
+                Messages.Message("Operation halted: Power lost", parent, MessageTypeDefOf.NegativeEvent);
+                return;
+            }
 
             // Periodic buffering - every 300 ticks (respects gizmo target level)
             var medPod = (Building_MedPod)parent;
@@ -72,8 +105,9 @@ namespace YAMP
                 return;
             }
 
-            // Stop activity if patient leaves
-            if (_currentActivity != null && ((Building_MedPod)parent).GetCurOccupant(0) == null)
+            // Stop activity if patient leaves or loses power
+            if (_currentActivity != null && 
+                (((Building_MedPod)parent).GetCurOccupant(0) == null || !HasPower))
             {
                 _currentActivity.Stop();
                 _currentActivity = null;
@@ -95,6 +129,12 @@ namespace YAMP
             if (_currentActivity != null)
             {
                 return; // Already have an activity running
+            }
+
+            if (!CheckPowerRequirements("start operation"))
+            {
+                _currentBill = null;
+                return;
             }
 
             _currentBill ??= GetSurgeryBill();
@@ -166,6 +206,10 @@ namespace YAMP
             {
                 if (b is Bill_Medical bm && bm.ShouldDoNow())
                 {
+                    if (!CheckPowerRequirements(bm.Label))
+                    {
+                        return null;
+                    }
                     Logger.Debug($"Found surgery bill: {bm.Label}");
                     return bm;
                 }

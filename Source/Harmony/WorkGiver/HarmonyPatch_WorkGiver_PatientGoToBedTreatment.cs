@@ -1,6 +1,7 @@
 using HarmonyLib;
 using RimWorld;
 using Verse;
+using Verse.AI;
 using System.Linq;
 
 namespace YAMP
@@ -29,6 +30,53 @@ namespace YAMP
                             return;
                         }
                     }
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(WorkGiver_Tend), "HasJobOnThing")]
+    public static class WorkGiver_Tend_HasJobOnThing_Patch
+    {
+        public static void Postfix(Pawn pawn, Thing t, bool forced, ref bool __result)
+        {
+            if (!__result) return;
+            if (t is Pawn patient && patient.CurrentBed() is Building_MedPod medPod)
+            {
+                if (medPod.TryGetComp<CompPowerTrader>() is CompPowerTrader powerComp && !powerComp.PowerOn)
+                {
+                    __result = false;
+                    JobFailReason.Is("NoPower".Translate());
+                }
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(WorkGiver_DoBill), "HasJobOnThingForBill")]
+    public static class WorkGiver_DoBill_HasJobOnThingForBill_Patch
+    {
+        public static void Postfix(Pawn pawn, IBillGiver giver, ref bool __result)
+        {
+            if (!__result) return;
+            if (giver is Building_MedPod medPod && medPod.TryGetComp<CompPowerTrader>() is CompPowerTrader powerComp && !powerComp.PowerOn)
+            {
+                __result = false;
+                JobFailReason.Is("NoPower".Translate());
+            }
+        }
+    }
+
+    [HarmonyPatch(typeof(RestUtility), "IsValidBedFor")]
+    public static class RestUtility_IsValidBedFor_Patch
+    {
+        public static void Postfix(Thing bedThing, Pawn sleeper, ref bool __result)
+        {
+            if (!__result) return;
+            if (bedThing is Building_MedPod medPod)
+            {
+                if (medPod.TryGetComp<CompPowerTrader>() is CompPowerTrader powerComp && !powerComp.PowerOn)
+                {
+                    __result = false;
                 }
             }
         }

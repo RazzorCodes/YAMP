@@ -28,6 +28,10 @@ namespace YAMP
         private readonly int _tendActivityWork = 120;
 
         public CompProp_PodTend Props => (CompProp_PodTend)props;
+        
+        private CompPowerTrader _powerComp;
+        public bool HasPower => _powerComp?.PowerOn ?? true;
+        
         YAMP.Activities.IActivity _currentActivity = null;
 
         public float Progress => _currentActivity?.ProgressPercentage ?? 0f;
@@ -40,12 +44,34 @@ namespace YAMP
         public override void PostSpawnSetup(bool respawningAfterLoad)
         {
             base.PostSpawnSetup(respawningAfterLoad);
+            var medPod = (Building_MedPod)parent;
+            _powerComp = medPod.PowerComp;
             Logger.Debug("Comp_PodTend spawned!");
+        }
+
+        private bool CheckPowerRequirements(string operation)
+        {
+            if (!HasPower)
+            {
+                Messages.Message($"Cannot {operation}: No power", parent, MessageTypeDefOf.RejectInput);
+                return false;
+            }
+            return true;
         }
 
         public override void CompTick()
         {
             base.CompTick();
+
+            // Check power state every 60 ticks when active
+            if (_currentActivity != null && parent.IsHashIntervalTick(60) && !HasPower)
+            {
+                Logger.Debug("Power lost during tend, stopping current activity");
+                _currentActivity.Stop();
+                _currentActivity = null;
+                Messages.Message("Tend halted: Power lost", parent, MessageTypeDefOf.NegativeEvent);
+                return;
+            }
 
             // Handle activity completion
             if (_currentActivity != null && _currentActivity.IsFinished)
@@ -82,6 +108,12 @@ namespace YAMP
 
             if (_currentActivity == null && parent is Building_MedPod medPod && TendHandler.CanTend(medPod))
             {
+                // Check power before starting tend
+                if (!CheckPowerRequirements("start tend"))
+                {
+                    return;
+                }
+                
                 // Attempt to start a new tend activity if possible
                 var args = new object[] { medPod };
 

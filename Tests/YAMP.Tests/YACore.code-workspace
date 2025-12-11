@@ -7,5 +7,7 @@
 			"path": "../../../YASM"
 		}
 	],
-    "settings": {}
+    "settings": {
+        "powershell.cwd": "YAMP"
+    }
 }

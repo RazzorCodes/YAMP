@@ -42,8 +42,8 @@ try {
     foreach ($folder in $folders) {
         $src = "$sourceDir\Mod\$folder"
         try {
+            Write-Host "Copying $folder..." -NoNewline
             if (Test-Path $src) {
-                Write-Host "Copying $folder..." -NoNewline
                 Copy-Item -Path $src -Destination $destDir -Recurse -Force
                 Write-Host " [OK]" -ForegroundColor Green
             }
