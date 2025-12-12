@@ -23,7 +23,7 @@ namespace YAMP
         public override Color DrawColor => Color.white;
 
         // Power component
-        public CompPowerTrader PowerComp;
+        public new CompPowerTrader PowerComp;
 
         // IStoreSettingsParent implementation
         public StorageSettings GetStoreSettings() => _storageSettings;
@@ -70,6 +70,7 @@ namespace YAMP
 
         public void GetChildHolders(List<IThingHolder> outChildren)
         {
+            // todo: iterate once
             // Iterate comps to find any that are IThingHolder
             if (AllComps != null)
             {

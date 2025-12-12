@@ -40,18 +40,26 @@ namespace YAMP
         }
 
         /// <summary>
-        /// Checks all conditional operations for the current patient
+        /// Checks all conditional operations for pawns of this pod's faction on the map
         /// </summary>
         public void CheckConditionals()
         {
             var medPod = parent as Building_MedPod;
             if (medPod == null) return;
 
-            var patient = medPod.GetCurOccupant(0);
-            if (patient == null) return;
+            var map = medPod.Map;
+            if (map == null) return;
 
-            // Check and enqueue operations
-            Manager.CheckAndEnqueueOperations(patient);
+            var faction = medPod.Faction;
+            if (faction == null) return;
+
+            var pawns = map.mapPawns?.SpawnedPawnsInFaction(faction);
+            if (pawns == null || pawns.Count == 0) return;
+
+            foreach (var pawn in pawns)
+            {
+                Manager.CheckAndEnqueueOperations(pawn);
+            }
         }
     }
 }

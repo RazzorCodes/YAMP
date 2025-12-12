@@ -3,6 +3,7 @@ using RimWorld;
 using Verse;
 using Verse.AI;
 using System.Linq;
+using System.Reflection;
 
 namespace YAMP
 {
@@ -52,13 +53,18 @@ namespace YAMP
         }
     }
 
-    [HarmonyPatch(typeof(WorkGiver_DoBill), "HasJobOnThingForBill")]
+    [HarmonyPatch(typeof(WorkGiver_DoBill))]
     public static class WorkGiver_DoBill_HasJobOnThingForBill_Patch
     {
-        public static void Postfix(Pawn pawn, IBillGiver giver, ref bool __result)
+        public static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(typeof(WorkGiver_DoBill), nameof(WorkGiver_DoBill.HasJobOnThing), new[] { typeof(Pawn), typeof(Thing), typeof(bool) });
+        }
+
+        public static void Postfix(Pawn pawn, Thing t, bool forced, ref bool __result)
         {
             if (!__result) return;
-            if (giver is Building_MedPod medPod && medPod.TryGetComp<CompPowerTrader>() is CompPowerTrader powerComp && !powerComp.PowerOn)
+            if (t is Building_MedPod medPod && medPod.TryGetComp<CompPowerTrader>() is CompPowerTrader powerComp && !powerComp.PowerOn)
             {
                 __result = false;
                 JobFailReason.Is("NoPower".Translate());

@@ -16,6 +16,14 @@ public static class HarmonyPatch_GetSleepingSlotPos
         {
             return;
         }
-        __result = __instance.Position;
+        
+        // Define the offset relative to the building's local space
+        IntVec3 offset = new IntVec3(1, 0, 1);
+        
+        // Rotate the offset according to the building's rotation
+        IntVec3 rotatedOffset = offset.RotatedBy(__instance.Rotation);
+        
+        // Add the rotated offset to the building's position
+        __result = __instance.Position + rotatedOffset;
     }
 }
