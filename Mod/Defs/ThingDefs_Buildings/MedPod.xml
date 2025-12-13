@@ -41,6 +41,9 @@
       <ComponentIndustrial>10</ComponentIndustrial>
       <ComponentSpacer>2</ComponentSpacer>
     </costList>
+    <researchPrerequisites>
+      <li>YAMP_Tech_MedPod</li>
+    </researchPrerequisites>
     <comps>
       <li Class="YAMP.CompProp_PodTend" />
       <li Class="YAMP.CompProp_PodOperate" />
